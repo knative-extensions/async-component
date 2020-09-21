@@ -86,7 +86,6 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		Host:     r.Host,
 		RawQuery: r.URL.RawQuery,
 	}
-	// check for Prefer: respond-async header
 	if r.Header.Get("Prefer") == "respond-async" {
 		// if request body exists, check that length doesn't exceed limit
 		if r.Body != nil {
@@ -102,7 +101,7 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(500)
 			}
 		}
-		// translate to string then json with id.
+		// translate to string, then json including an id.
 		reqString := buff.String()
 		id := gouuidv6.NewFromTime(time.Now()).String()
 		reqData := requestData{
@@ -125,7 +124,7 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Not async, proxy the request
+	// if the request is not async, proxy the request
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ServeHTTP(w, r)
 }
