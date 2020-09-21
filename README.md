@@ -35,7 +35,8 @@ Asynchronous component to enable asynchronous knative service calls.
 
 ## Install the Redis Source
 
-1. Follow the `Getting Started` Instructions for the [Redis Source](https://github.com/lionelvillard/eventing-redis/tree/master/source)
+1. Follow the `Getting Started` Instructions for the
+   [Redis Source](https://github.com/lionelvillard/eventing-redis/tree/master/source)
 
 1. For the `Example` section, do not install the entire `samples` folder, as you don't need the event-display sink. Only install redis with: `kubectl apply -f samples/redis`.
 
