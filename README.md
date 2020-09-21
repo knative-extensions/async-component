@@ -10,7 +10,11 @@ Asynchronous component to enable asynchronous knative service calls.
 
 ## Create your Demo Application.
 
-## Create your Demo Application. 
+## Create your Demo Application.
+
+1. This can be any simple hello world application that sleeps for some time.
+   There is a sample application that sleeps for 10 seconds in the `test/app`
+   folder. To deploy, use the `kubectl apply` command.
 
 1. This can be any simple hello world application that sleeps for some time. There is a sample application that sleeps for 10 seconds in the `test/app` folder. To deploy, use the `kubectl apply` command.
     
