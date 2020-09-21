@@ -66,7 +66,7 @@ func TestConsumeEvent(t *testing.T) {
 	}, {
 		name:        "bad url format",
 		reqString:   getRequestString(badreq),
-		expectedErr: "dial tcp: lookup badurl: no such host",
+		expectedErr: "no such host",
 	}, {
 		name:        "no request data, get request",
 		reqString:   "",
