@@ -8,4 +8,4 @@ spec:
     spec:
       containerConcurrency: 1
       containers:
-      - image: ko://knative.dev/async-component/cmd/async/consumer
+      - image: ko://knative.dev/async-component/cmd/consumer

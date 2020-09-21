@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: app
-        image:  ko://knative.dev/async-component/cmd/async/producer
+        image:  ko://knative.dev/async-component/cmd/producer
         env:
         - name: REDIS_ADDRESS
           value: redis.redis.svc.cluster.local:6379
