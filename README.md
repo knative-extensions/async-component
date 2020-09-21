@@ -21,6 +21,7 @@ Asynchronous component to enable asynchronous knative service calls.
 1. Make note of your application URL.
 
 ## Install the Consumer and Producer
+
 1. Apply the following config files:
 
     ```
