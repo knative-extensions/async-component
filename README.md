@@ -18,7 +18,10 @@ Asynchronous component to enable asynchronous knative service calls.
     kubectl apply -f test/app/service.yml
     ```
     
-1. Make note of your application URL.
+1. Make note of your application URL, which you can get with the following command:
+    ```
+    kubectl get kservice helloworld-sleep
+    ```
 
 ## Install the Consumer and Producer
 

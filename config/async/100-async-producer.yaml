@@ -36,7 +36,7 @@ spec:
         - name: REDIS_STREAM_NAME
           value: mystream
         - name: REQUEST_SIZE_LIMIT
-          value: 6000000
+          value: "6000000"
         ports:
         - containerPort: 80
 

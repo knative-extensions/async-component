@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/bradleypeabody/gouuidv6"
@@ -33,7 +34,7 @@ import (
 type envInfo struct {
 	StreamName       string `envconfig:"REDIS_STREAM_NAME"`
 	RedisAddress     string `envconfig:"REDIS_ADDRESS"`
-	RequestSizeLimit int    `envconfig:"REQUEST_SIZE_LIMIT"`
+	RequestSizeLimit string `envconfig:"REQUEST_SIZE_LIMIT"`
 }
 
 type requestData struct {
@@ -88,8 +89,12 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("Prefer") == "respond-async" {
 		// if request body exists, check that length doesn't exceed limit
+		requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
+		if err != nil {
+			fmt.Println("Error parsing request size string to integer")
+		}
 		if r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, int64(env.RequestSizeLimit))
+			r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
 		}
 		// write the request into buff
 		var buff = &bytes.Buffer{}
