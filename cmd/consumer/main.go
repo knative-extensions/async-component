@@ -37,8 +37,7 @@ func consumeEvent(event cloudevents.Event) error {
 	event.DataAs(&datastrings)
 
 	// unmarshal the string to request
-	err := json.Unmarshal([]byte(datastrings[1]), data)
-	if err != nil {
+	if err := json.Unmarshal([]byte(datastrings[1]), data); err != nil {
 		fmt.Println("Error unmarshalling json")
 		return err
 	}
