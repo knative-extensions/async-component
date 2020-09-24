@@ -38,16 +38,14 @@ func consumeEvent(event cloudevents.Event) error {
 
 	// unmarshal the string to request
 	if err := json.Unmarshal([]byte(datastrings[1]), data); err != nil {
-		fmt.Println("Error unmarshalling json")
-		return err
+		return fmt.Errorf("error unmarshalling json: %w", err)
 	}
 
 	// deserialize the request
 	r := bufio.NewReader(strings.NewReader(data.Req))
 	req, err := http.ReadRequest(r)
 	if err != nil {
-		fmt.Println("Problem reading request: ", err)
-		return err
+		return fmt.Errorf("problem reading request: %w", err)
 	}
 	// client for sending request
 	client := &http.Client{}
@@ -55,16 +53,14 @@ func consumeEvent(event cloudevents.Event) error {
 	// build new url - writing the request removes the URL and places in URI.
 	req.URL, err = url.Parse("http://" + req.Host + req.RequestURI)
 	if err != nil {
-		fmt.Println("Problem parsing URL: ", req.URL)
-		return err
+		return fmt.Errorf("Problem parsing url: %w", err)
 	}
 	// RequestURI must be unset for client.Do(req)
 	req.RequestURI = ""
 	req.Header.Del("Prefer") // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Problem calling url: ", err)
-		return err
+		return fmt.Errorf("Problem calling url: %w", err)
 	}
 	defer resp.Body.Close()
 	return nil

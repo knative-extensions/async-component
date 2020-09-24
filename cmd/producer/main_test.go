@@ -33,6 +33,7 @@ func TestAsyncRequestHeader(t *testing.T) {
 			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)
 		}
 	}))
+	setupRedis()
 
 	tests := []struct {
 		name             string
@@ -86,7 +87,6 @@ func TestAsyncRequestHeader(t *testing.T) {
 				RedisAddress:     "address",
 				RequestSizeLimit: "25",
 			}
-			setupRedis()
 			request, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
 			if test.method == "POST" {
 				var body *strings.Reader
