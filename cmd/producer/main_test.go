@@ -38,44 +38,44 @@ func TestAsyncRequestHeader(t *testing.T) {
 		name             string
 		async            bool
 		method           string
-		bodyType         string
+		body             string
 		contentLengthSet bool
 		returncode       int
 	}{{
 		name:       "async get request",
 		async:      true,
 		method:     "GET",
-		bodyType:   "none",
+		body:       "",
 		returncode: 202,
 	}, {
 		name:       "non async get request",
 		async:      false,
 		method:     "GET",
-		bodyType:   "none",
+		body:       "",
 		returncode: 200,
 	}, {
 		name:       "non async post request",
 		async:      false,
 		method:     "POST",
-		bodyType:   "normal",
+		body:       `{"body":"this is a body"}`,
 		returncode: 200,
 	}, {
 		name:       "async post request with too large payload",
 		async:      true,
 		method:     "POST",
-		bodyType:   "large",
+		body:       `{"body":"this is a larger body"}`,
 		returncode: 500,
 	}, {
 		name:       "async post request with smaller than limit payload",
 		async:      true,
 		method:     "POST",
-		bodyType:   "normal",
+		body:       `{"body":"this is a body"}`,
 		returncode: 202,
 	}, {
 		name:       "test failure to write to Redis",
 		async:      true,
 		method:     "POST",
-		bodyType:   "failure",
+		body:       "failure",
 		returncode: 500,
 	},
 	}
@@ -90,12 +90,8 @@ func TestAsyncRequestHeader(t *testing.T) {
 			request, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
 			if test.method == "POST" {
 				var body *strings.Reader
-				if test.bodyType == "normal" {
-					body = strings.NewReader(`{"body":"this is a body"}`)
-				} else if test.bodyType == "large" {
-					body = strings.NewReader(`{"body":"this is a larger body"}`)
-				} else if test.bodyType == "failure" {
-					body = strings.NewReader(`FAIL`)
+				if test.body != "" {
+					body = strings.NewReader(test.body)
 				}
 				request, _ = http.NewRequest(http.MethodPost, testserver.URL, body)
 			}
@@ -128,7 +124,7 @@ func setupRedis() {
 }
 
 func (fr *fakeRedis) write(ctx context.Context, s envInfo, reqJSON []byte, id string) (err error) {
-	if strings.Contains(string(reqJSON), "FAIL") {
+	if strings.Contains(string(reqJSON), "failure") {
 		return errors.New("Failure writing")
 	}
 	return // no need to actually write to redis stream for our test case.
