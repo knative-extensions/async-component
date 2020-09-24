@@ -88,8 +88,7 @@ func TestConsumeEvent(t *testing.T) {
 			// setdata in the event
 			myEvent.SetData(cloudevents.ApplicationJSON, testData)
 
-			theResponse := consumeEvent(myEvent)
-			got := theResponse
+			got := consumeEvent(myEvent)
 			if test.expectedErr != "" {
 				msg := got.Error()
 				if !strings.Contains(msg, test.expectedErr) {
