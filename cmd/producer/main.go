@@ -143,8 +143,7 @@ func (mr *myRedis) write(ctx context.Context, s envInfo, reqJSON []byte, id stri
 		},
 	})
 	if strCMD.Err() != nil {
-		log.Printf("Failed to publish %q %v", id, strCMD.Err())
-		return strCMD.Err()
+		return fmt.Errorf("failed to publish %q: %v", id, strCMD.Err())
 	}
 	return
 }
