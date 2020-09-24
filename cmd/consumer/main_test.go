@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -57,15 +56,15 @@ func TestConsumeEvent(t *testing.T) {
 		expectedErr string
 	}{{
 		name:        "proper request data, get request",
-		reqString:   getRequestString(getreq),
+		reqString:   getRequestString(getreq, t),
 		expectedErr: "",
 	}, {
 		name:        "proper request data, post request",
-		reqString:   getRequestString(postreq),
+		reqString:   getRequestString(postreq, t),
 		expectedErr: "",
 	}, {
 		name:        "bad url format",
-		reqString:   getRequestString(badreq),
+		reqString:   getRequestString(badreq, t),
 		expectedErr: "no such host",
 	}, {
 		name:        "no request data, get request",
@@ -82,7 +81,7 @@ func TestConsumeEvent(t *testing.T) {
 			// marshal data to json and then translate to string to encode as base64
 			out, err := json.Marshal(data)
 			if err != nil {
-				fmt.Println("error marshalling json for test")
+				t.Errorf("Error marshaling json for test")
 			}
 			testData := []string{"data", string(out)}
 
@@ -103,13 +102,11 @@ func TestConsumeEvent(t *testing.T) {
 	}
 }
 
-func getRequestString(theReq *http.Request) string {
-
+func getRequestString(theReq *http.Request, t *testing.T) string {
 	// write the request into b
 	var b = &bytes.Buffer{}
 	if err := theReq.Write(b); err != nil {
-		fmt.Println("ERROR WRITING REQUEST")
-		// return err
+		t.Errorf("Error writing request to buffer")
 	}
 	return b.String()
 }
