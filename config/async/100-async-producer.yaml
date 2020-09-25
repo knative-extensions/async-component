@@ -39,8 +39,3 @@ spec:
           value: "6000000"
         ports:
         - containerPort: 80
-
-
-
-
-        

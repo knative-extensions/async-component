@@ -1,6 +1,6 @@
 # Knative Asynchronous Component
 
-Asynchronous component to enable asynchronous knative service calls.
+Asynchronous component to enable async Knative service calls.
 
 ![diagram](./README-images/diagram.png)
 
@@ -10,7 +10,7 @@ Asynchronous component to enable asynchronous knative service calls.
 
 ## Create your Demo Application.
 
-1. This can be any simple hello world application that sleeps for some time.
+1. This can be, at a minimum, a simple hello world application that sleeps for some time.
    There is a sample application that sleeps for 10 seconds in the `test/app`
    folder. To deploy, use the `kubectl apply` command:
     ```
