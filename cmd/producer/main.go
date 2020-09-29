@@ -91,7 +91,7 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		// if request body exists, check that length doesn't exceed limit
 		requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
 		if err != nil {
-			fmt.Println("Error parsing request size string to integer")
+			log.Fatal("Error parsing request size string to integer")
 		}
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
@@ -102,9 +102,10 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 			if err.Error() == "http: request body too large" {
 				w.WriteHeader(500)
 			} else {
-				fmt.Println("Error writing to buffer: ", err)
+				log.Print("Error writing to buffer: ", err)
 				w.WriteHeader(500)
 			}
+			return
 		}
 		// translate to string, then json including an id.
 		reqString := buff.String()
@@ -116,13 +117,13 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		reqJSON, err := json.Marshal(reqData)
 		if err != nil {
 			w.WriteHeader(500)
-			fmt.Fprint(w, "Failed to marshal request: ", err)
+			log.Println(w, "Failed to marshal request: ", err)
 			return
 		}
 		// write the request information to the storage
 		if writeErr := rc.write(r.Context(), env, reqJSON, reqData.ID); writeErr != nil {
 			w.WriteHeader(500)
-			fmt.Println("Error asynchronous writing request to storage ", writeErr)
+			log.Println("Error asynchronous writing request to storage ", writeErr)
 			return
 		}
 		w.WriteHeader(http.StatusAccepted)
