@@ -1,6 +1,7 @@
 approvers:
   - technical-oversight-committee
   - wg-leads
+  - beemarie
 
 # Reviewers are suggested from the reviewers list first, then the approvers
 # list. To add reviewers while spreading the load among existing approvers,
