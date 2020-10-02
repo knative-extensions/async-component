@@ -1,0 +1,10 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: async-consumer
+spec:
+  template:
+    spec:
+      containerConcurrency: 1
+      containers:
+      - image: ko://knative.dev/async-component/cmd/consumer

@@ -1,0 +1,12 @@
+apiVersion: sources.knative.dev/v1alpha1
+kind: RedisStreamSource
+metadata:
+  name: mystream
+spec:
+  address: "redis.redis.svc.cluster.local:6379"
+  stream: mystream
+  sink:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: async-consumer
