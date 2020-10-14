@@ -1,5 +1,7 @@
 # Knative Asynchronous Component
 
+>Warning: Experimental and still under development. Not meant for production deployment.
+
 Asynchronous component to enable async Knative service calls.
 
 ![diagram](./README-images/diagram.png)
