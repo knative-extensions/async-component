@@ -36,7 +36,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 
 	markIngressReady(ing) //TODO (beemarie): this just sets the status of KIngress, but load balancer isn't needed.
 
-	desired := makeNewIngress(ctx, ing, ingressClass)
+	desired := makeNewIngress(ing, ingressClass)
 	_, err := ingress.InsertProbe(desired)
 	if err != nil {
 		logger.Errorf("failed to add knative probe header in ingress %s", ing.GetName())
@@ -84,7 +84,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, desired *v1alpha1.Ing
 }
 
 // makeNewIngress creates an Ingress object with respond-async headers pointing to producer-service
-func makeNewIngress(ctx context.Context, ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.Ingress {
+func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.Ingress {
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 	splits = append(splits, v1alpha1.IngressBackendSplit{
 		IngressBackend: v1alpha1.IngressBackend{
