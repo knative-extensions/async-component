@@ -27,38 +27,38 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 )
 
-func TestMakeNewIngress(t *testing.T) {
-
-	ing := &netv1alpha1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-ingress",
-			Namespace: "namespace",
-			Annotations: map[string]string{
-				"networking.knative.dev/ingress.class": "async.ingress.networking.knative.dev",
-			},
+var ing = &netv1alpha1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "test-ingress",
+		Namespace: "namespace",
+		Annotations: map[string]string{
+			"networking.knative.dev/ingress.class": "async.ingress.networking.knative.dev",
 		},
-		Spec: netv1alpha1.IngressSpec{
-			Rules: []netv1alpha1.IngressRule{{
-				Hosts:      []string{"example.com"},
-				Visibility: netv1alpha1.IngressVisibilityExternalIP,
-				HTTP: &netv1alpha1.HTTPIngressRuleValue{
-					Paths: []netv1alpha1.HTTPIngressPath{{
-						Splits: []netv1alpha1.IngressBackendSplit{{
-							Percent: 100,
-							AppendHeaders: map[string]string{
-								network.OriginalHostHeader: "test.com",
-							},
-							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceName:      "servicename",
-								ServiceNamespace: "namespace",
-								ServicePort:      intstr.FromInt(80),
-							},
-						}},
+	},
+	Spec: netv1alpha1.IngressSpec{
+		Rules: []netv1alpha1.IngressRule{{
+			Hosts:      []string{"example.com"},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							network.OriginalHostHeader: "test.com",
+						},
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceName:      "servicename",
+							ServiceNamespace: "namespace",
+							ServicePort:      intstr.FromInt(80),
+						},
 					}},
-				},
-			}},
-		},
-	}
+				}},
+			},
+		}},
+	},
+}
+
+func TestMakeNewIngress(t *testing.T) {
 
 	got := makeNewIngress(ing, "async.ingress.networking.knative.dev")
 
@@ -117,5 +117,13 @@ func TestMakeNewIngress(t *testing.T) {
 
 	if !cmp.Equal(want, got) {
 		t.Errorf("Unexpected Ingress (-want, +got):\n%s", cmp.Diff(want, got))
+	}
+}
+
+func TestMarkIngressReady(t *testing.T) {
+	markIngressReady(ing)
+	c := ing.Status.Conditions
+	if c == nil {
+		t.Fatal("Expected NewController to return a non-nil value")
 	}
 }

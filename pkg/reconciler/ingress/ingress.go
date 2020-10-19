@@ -85,6 +85,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, desired *v1alpha1.Ing
 
 // makeNewIngress creates an Ingress object with respond-async headers pointing to producer-service
 func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.Ingress {
+	original := ingress.DeepCopy()
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 	splits = append(splits, v1alpha1.IngressBackendSplit{
 		IngressBackend: v1alpha1.IngressBackend{
@@ -95,7 +96,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 		Percent: int(100),
 	})
 	theRules := []v1alpha1.IngressRule{}
-	for _, rule := range ingress.Spec.Rules {
+	for _, rule := range original.Spec.Rules {
 		newRule := rule
 		newPaths := make([]v1alpha1.HTTPIngressPath, 0)
 		newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
@@ -108,15 +109,15 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 	return &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ingress.Name + "-new",
-			Namespace: ingress.Namespace,
+			Name:      original.Name + "-new",
+			Namespace: original.Namespace,
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 			}), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
-			Labels:          ingress.Labels,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress)},
+			Labels:          original.Labels,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(original)},
 		},
 		Spec: v1alpha1.IngressSpec{
 			Rules: theRules,
@@ -124,6 +125,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 }
 
+// TODO: (beemarie) track status of upstream ingress that is created "-new"
 func markIngressReady(ingress *v1alpha1.Ingress) {
 	internalDomain := domainForServiceName(ingress.Name)
 	externalDomain := domainForServiceName(ingress.Name)
