@@ -20,4 +20,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200326112834-f447254575fd // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
+	knative.dev/test-infra/scripts v0.0.0-20200610004422-8b4a5283a123
 )
