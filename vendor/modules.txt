@@ -693,6 +693,8 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingres
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
+knative.dev/networking/pkg/status
+knative.dev/networking/pkg/testing/status
 # knative.dev/pkg v0.0.0-20201016021557-c1a8664276b4
 ## explicit
 knative.dev/pkg/apis
@@ -717,6 +719,7 @@ knative.dev/pkg/metrics
 knative.dev/pkg/metrics/metricskey
 knative.dev/pkg/network
 knative.dev/pkg/network/handlers
+knative.dev/pkg/network/prober
 knative.dev/pkg/profiling
 knative.dev/pkg/reconciler
 knative.dev/pkg/signals

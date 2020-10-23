@@ -14,7 +14,6 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
-	"knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
@@ -37,12 +36,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	markIngressReady(ing) //TODO (beemarie): this just sets the status of KIngress, but load balancer isn't needed.
 
 	desired := makeNewIngress(ing, ingressClass)
-	_, err := ingress.InsertProbe(desired)
-	if err != nil {
-		logger.Errorf("failed to add knative probe header in ingress %s", ing.GetName())
-		return err
-	}
-	_, err = r.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
+	_, err := r.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 	if err != nil {
 		logger.Errorf("error creating ingress %s", desired.Name)
 		return err
