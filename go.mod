@@ -14,6 +14,7 @@ require (
 	knative.dev/net-contour v0.18.1
 	knative.dev/networking v0.0.0-20201016015257-30b677481f47
 	knative.dev/pkg v0.0.0-20201016021557-c1a8664276b4
+	knative.dev/test-infra v0.0.0-20201015231956-d236fb0ea9ff
 )
 
 replace (

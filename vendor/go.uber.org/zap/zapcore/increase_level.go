@@ -23,12 +23,7 @@ package zapcore
 import "fmt"
 
 type levelFilterCore struct {
-<<<<<<< HEAD
-	Core
-
-=======
 	core  Core
->>>>>>> add vendor folder and update with controller for changing async ingress types
 	level LevelEnabler
 }
 
@@ -50,21 +45,15 @@ func (c *levelFilterCore) Enabled(lvl Level) bool {
 	return c.level.Enabled(lvl)
 }
 
-<<<<<<< HEAD
-=======
 func (c *levelFilterCore) With(fields []Field) Core {
 	return &levelFilterCore{c.core.With(fields), c.level}
 }
 
->>>>>>> add vendor folder and update with controller for changing async ingress types
 func (c *levelFilterCore) Check(ent Entry, ce *CheckedEntry) *CheckedEntry {
 	if !c.Enabled(ent.Level) {
 		return ce
 	}
 
-<<<<<<< HEAD
-	return c.Core.Check(ent, ce)
-=======
 	return c.core.Check(ent, ce)
 }
 
@@ -74,5 +63,4 @@ func (c *levelFilterCore) Write(ent Entry, fields []Field) error {
 
 func (c *levelFilterCore) Sync() error {
 	return c.core.Sync()
->>>>>>> add vendor folder and update with controller for changing async ingress types
 }

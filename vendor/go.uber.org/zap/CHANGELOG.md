@@ -395,10 +395,7 @@ upgrade to the upcoming stable release.
 [#791]: https://github.com/uber-go/zap/pull/791
 [#795]: https://github.com/uber-go/zap/pull/795
 [#799]: https://github.com/uber-go/zap/pull/799
-<<<<<<< HEAD
-=======
 [#804]: https://github.com/uber-go/zap/pull/804
 [#812]: https://github.com/uber-go/zap/pull/812
 [#806]: https://github.com/uber-go/zap/pull/806
 [#813]: https://github.com/uber-go/zap/pull/813
->>>>>>> add vendor folder and update with controller for changing async ingress types

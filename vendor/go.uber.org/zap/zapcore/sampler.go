@@ -81,19 +81,6 @@ func (c *counter) IncCheckReset(t time.Time, tick time.Duration) uint64 {
 	return 1
 }
 
-<<<<<<< HEAD
-type sampler struct {
-	Core
-
-	counts            *counters
-	tick              time.Duration
-	first, thereafter uint64
-}
-
-// NewSampler creates a Core that samples incoming entries, which caps the CPU
-// and I/O load of logging while attempting to preserve a representative subset
-// of your logs.
-=======
 // SamplingDecision is a decision represented as a bit field made by sampler.
 // More decisions may be added in the future.
 type SamplingDecision uint32
@@ -141,19 +128,11 @@ func SamplerHook(hook func(entry Entry, dec SamplingDecision)) SamplerOption {
 // NewSamplerWithOptions creates a Core that samples incoming entries, which
 // caps the CPU and I/O load of logging while attempting to preserve a
 // representative subset of your logs.
->>>>>>> add vendor folder and update with controller for changing async ingress types
 //
 // Zap samples by logging the first N entries with a given level and message
 // each tick. If more Entries with the same level and message are seen during
 // the same interval, every Mth message is logged and the rest are dropped.
 //
-<<<<<<< HEAD
-// Keep in mind that zap's sampling implementation is optimized for speed over
-// absolute precision; under load, each tick may be slightly over- or
-// under-sampled.
-func NewSampler(core Core, tick time.Duration, first, thereafter int) Core {
-	return &sampler{
-=======
 // Sampler can be configured to report sampling decisions with the SamplerHook
 // option.
 //
@@ -162,15 +141,11 @@ func NewSampler(core Core, tick time.Duration, first, thereafter int) Core {
 // under-sampled.
 func NewSamplerWithOptions(core Core, tick time.Duration, first, thereafter int, opts ...SamplerOption) Core {
 	s := &sampler{
->>>>>>> add vendor folder and update with controller for changing async ingress types
 		Core:       core,
 		tick:       tick,
 		counts:     newCounters(),
 		first:      uint64(first),
 		thereafter: uint64(thereafter),
-<<<<<<< HEAD
-	}
-=======
 		hook:       nopSamplingHook,
 	}
 	for _, opt := range opts {
@@ -204,7 +179,6 @@ type sampler struct {
 // Deprecated: use NewSamplerWithOptions.
 func NewSampler(core Core, tick time.Duration, first, thereafter int) Core {
 	return NewSamplerWithOptions(core, tick, first, thereafter)
->>>>>>> add vendor folder and update with controller for changing async ingress types
 }
 
 func (s *sampler) With(fields []Field) Core {
@@ -214,10 +188,7 @@ func (s *sampler) With(fields []Field) Core {
 		counts:     s.counts,
 		first:      s.first,
 		thereafter: s.thereafter,
-<<<<<<< HEAD
-=======
 		hook:       s.hook,
->>>>>>> add vendor folder and update with controller for changing async ingress types
 	}
 }
 
@@ -229,14 +200,9 @@ func (s *sampler) Check(ent Entry, ce *CheckedEntry) *CheckedEntry {
 	counter := s.counts.get(ent.Level, ent.Message)
 	n := counter.IncCheckReset(ent.Time, s.tick)
 	if n > s.first && (n-s.first)%s.thereafter != 0 {
-<<<<<<< HEAD
-		return ce
-	}
-=======
 		s.hook(ent, LogDropped)
 		return ce
 	}
 	s.hook(ent, LogSampled)
->>>>>>> add vendor folder and update with controller for changing async ingress types
 	return s.Core.Check(ent, ce)
 }

@@ -87,12 +87,6 @@ func Development() Option {
 }
 
 // AddCaller configures the Logger to annotate each message with the filename
-<<<<<<< HEAD
-// and line number of zap's caller.
-func AddCaller() Option {
-	return optionFunc(func(log *Logger) {
-		log.addCaller = true
-=======
 // and line number of zap's caller.  See also WithCaller.
 func AddCaller() Option {
 	return WithCaller(true)
@@ -104,7 +98,6 @@ func AddCaller() Option {
 func WithCaller(enabled bool) Option {
 	return optionFunc(func(log *Logger) {
 		log.addCaller = enabled
->>>>>>> add vendor folder and update with controller for changing async ingress types
 	})
 }
 

@@ -32,14 +32,11 @@ import (
 // improves the navigability of this package's API documentation.
 type Field = zapcore.Field
 
-<<<<<<< HEAD
-=======
 var (
 	_minTimeInt64 = time.Unix(0, math.MinInt64)
 	_maxTimeInt64 = time.Unix(0, math.MaxInt64)
 )
 
->>>>>>> add vendor folder and update with controller for changing async ingress types
 // Skip constructs a no-op field, which is often useful when handling invalid
 // inputs in other Field constructors.
 func Skip() Field {
@@ -347,12 +344,9 @@ func Stringer(key string, val fmt.Stringer) Field {
 // Time constructs a Field with the given key and value. The encoder
 // controls how the time is serialized.
 func Time(key string, val time.Time) Field {
-<<<<<<< HEAD
-=======
 	if val.Before(_minTimeInt64) || val.After(_maxTimeInt64) {
 		return Field{Key: key, Type: zapcore.TimeFullType, Interface: val}
 	}
->>>>>>> add vendor folder and update with controller for changing async ingress types
 	return Field{Key: key, Type: zapcore.TimeType, Integer: val.UnixNano(), Interface: val.Location()}
 }
 
