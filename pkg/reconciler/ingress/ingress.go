@@ -120,11 +120,9 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 
 	ingress.Status.MarkLoadBalancerReady(
 		[]v1alpha1.LoadBalancerIngressStatus{{
-			//DomainInternal: "doesitmatter", // TODO:(beemarie) this isn't a "real ingress", what can we put here?
 			DomainInternal: externalDomain,
 		}},
 		[]v1alpha1.LoadBalancerIngressStatus{{
-			//DomainInternal: "shouldntmatter", // TODO:(beemarie) this isn't a "real ingress", what can we put here?
 			DomainInternal: internalDomain,
 		}},
 	)
@@ -132,13 +130,5 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 }
 
 func domainForServiceName(serviceName string) string {
-	return serviceName + "." + getGatewayNamespace() + ".svc." + network.GetClusterDomainName()
-}
-
-func getGatewayNamespace() string {
-	namespace := "" //os.Getenv(config.GatewayNamespaceEnv)
-	if namespace == "" {
-		return system.Namespace()
-	}
-	return namespace
+	return serviceName + "." + system.Namespace() + ".svc." + network.GetClusterDomainName()
 }
