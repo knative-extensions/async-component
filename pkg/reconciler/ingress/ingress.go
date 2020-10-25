@@ -36,17 +36,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	markIngressReady(ing) //TODO (beemarie): this just sets the status of KIngress, but load balancer isn't needed.
 
 	desired := makeNewIngress(ing, ingressClass)
-	_, err := r.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
+	_, err := r.reconcileIngress(ctx, desired)
 	if err != nil {
-		logger.Errorf("error creating ingress %s", desired.Name)
+		logger.Errorf("error reconciling ingress: %s", desired.Name)
 		return err
 	}
-	_, err = r.reconcileIngress(ctx, ing)
-	if err != nil {
-		logger.Errorf("error reconciling ingress: %s", ing.Name)
-		return err
-	}
-	// return err
 	return nil
 }
 
@@ -111,7 +105,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
 			Labels:          original.Labels,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(original)},
+			OwnerReferences: original.OwnerReferences,
 		},
 		Spec: v1alpha1.IngressSpec{
 			Rules: theRules,

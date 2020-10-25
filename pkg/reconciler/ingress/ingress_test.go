@@ -54,15 +54,6 @@ var createdIng = &netv1alpha1.Ingress{
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: network.IstioIngressClassName,
 		},
-		OwnerReferences: []metav1.OwnerReference{
-			{
-				APIVersion:         "networking.internal.knative.dev/v1alpha1",
-				Kind:               "Ingress",
-				Name:               "test-ingress",
-				Controller:         &booltrue,
-				BlockOwnerDeletion: &booltrue,
-			},
-		},
 	},
 	Spec: netv1alpha1.IngressSpec{
 		Rules: []netv1alpha1.IngressRule{{
@@ -109,13 +100,14 @@ func TestMakeNewIngress(t *testing.T) {
 
 func TestMarkIngressReady(t *testing.T) {
 	markIngressReady(ing)
-	c := ing.Status.Conditions
-	if c == nil {
-		t.Fatal("Expected NewController to return a non-nil value")
+	got := ing.Status.Conditions
+	if got == nil {
+		t.Fatal("Expected Conditions to return a non-nil value")
 	}
 }
 
 func TestReconcile(t *testing.T) {
+	createdIng.Status.InitializeConditions()
 	table := TableTest{{
 		Name: "skip ingress not matching class key",
 		Objects: []runtime.Object{
