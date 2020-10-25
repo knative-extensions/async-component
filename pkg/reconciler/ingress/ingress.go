@@ -33,7 +33,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	// TODO(beemarie): allow this ingress class to be configurable
 	ingressClass := networkpkg.IstioIngressClassName
 
-	markIngressReady(ing) //TODO (beemarie): this just sets the status of KIngress, but load balancer isn't needed.
+	markIngressReady(ing) //TODO(beemarie): this just sets the status of KIngress, but load balancer isn't needed.
 
 	desired := makeNewIngress(ing, ingressClass)
 	_, err := r.reconcileIngress(ctx, desired)
@@ -113,7 +113,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 }
 
-// TODO: (beemarie) track status of upstream ingress that is created "-new"
+// TODO(beemarie) track status of upstream ingress that is created "-new"
 func markIngressReady(ingress *v1alpha1.Ingress) {
 	internalDomain := domainForServiceName(ingress.Name)
 	externalDomain := domainForServiceName(ingress.Name)
