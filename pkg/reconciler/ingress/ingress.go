@@ -67,7 +67,6 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, desired *v1alpha1.Ing
 		}
 		return updated, nil
 	}
-
 	return ingress, err
 }
 
