@@ -46,49 +46,7 @@ type testConfigStore struct {
 }
 
 var ing = ingress("default", "test-ingress", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: asyncIngressClassName}))
-var booltrue = true
-var createdIng = &netv1alpha1.Ingress{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "test-ingress-new",
-		Namespace: "default",
-		Annotations: map[string]string{
-			networking.IngressClassAnnotationKey: network.IstioIngressClassName,
-		},
-	},
-	Spec: netv1alpha1.IngressSpec{
-		Rules: []netv1alpha1.IngressRule{{
-			Hosts:      []string{"example.com"},
-			Visibility: netv1alpha1.IngressVisibilityExternalIP,
-			HTTP: &netv1alpha1.HTTPIngressRuleValue{
-				Paths: []netv1alpha1.HTTPIngressPath{
-					{
-						Headers: map[string]v1alpha1.HeaderMatch{"Prefer": {Exact: "respond-async"}},
-						Splits: []v1alpha1.IngressBackendSplit{
-							{
-								IngressBackend: netv1alpha1.IngressBackend{
-									ServiceName:      "producer-service",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(80),
-								},
-								Percent: 100}},
-					},
-					{
-						Splits: []netv1alpha1.IngressBackendSplit{{
-							Percent: 100,
-							AppendHeaders: map[string]string{
-								network.OriginalHostHeader: "test.com",
-							},
-							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceName:      "servicename",
-								ServiceNamespace: "default",
-								ServicePort:      intstr.FromInt(80),
-							},
-						}},
-					}},
-			},
-		}},
-	},
-}
+var createdIng = ingress("default", "test-ingress-new", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withHeaderPaths())
 
 func TestMakeNewIngress(t *testing.T) {
 	got := makeNewIngress(ing, network.IstioIngressClassName)
@@ -175,5 +133,27 @@ func ingress(namespace, name string, opt ...ingressCreationOption) *v1alpha1.Ing
 func withAnnotations(ans map[string]string) ingressCreationOption {
 	return func(ing *v1alpha1.Ingress) {
 		ing.Annotations = ans
+	}
+}
+
+func withHeaderPaths() ingressCreationOption {
+	return func(ing *v1alpha1.Ingress) {
+		for _, rule := range ing.Spec.Rules {
+
+			newPaths := make([]v1alpha1.HTTPIngressPath, 0)
+			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
+				Headers: map[string]v1alpha1.HeaderMatch{"Prefer": {Exact: "respond-async"}},
+				Splits: []v1alpha1.IngressBackendSplit{
+					{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceName:      "producer-service",
+							ServiceNamespace: "default",
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100}},
+			})
+			newPaths = append(newPaths, rule.HTTP.Paths...)
+			rule.HTTP.Paths = newPaths
+		}
 	}
 }
