@@ -17,8 +17,6 @@ kind: Deployment
 metadata:
   name: async-controller
   namespace: knative-serving
-  labels:
-    samples.knative.dev/release: devel
 spec:
   replicas: 1
   selector:
@@ -28,7 +26,6 @@ spec:
     metadata:
       labels:
         app: async-controller
-        samples.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:

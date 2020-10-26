@@ -14,7 +14,6 @@ limitations under the License.
 package main
 
 import (
-	// The set of controllers this controller process runs.
 	"knative.dev/async-component/pkg/reconciler/ingress"
 
 	// This defines the shared main for injected controllers.
