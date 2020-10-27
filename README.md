@@ -18,11 +18,26 @@ Asynchronous component to enable async Knative service calls.
     ```
     kubectl apply -f test/app/service.yml
     ```
+
+1. Note that your application has an annotation setting the ingress.class as async. This enables just this application to respond to the `Prefer: respond-async` header.
+    ```
+    networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
+    ```
     
 1. Make note of your application URL, which you can get with the following command:
     ```
     kubectl get kservice helloworld-sleep
     ```
+    
+1. (Optional) If you wanted every service to respond to the `Prefer: respond-async` header asynchronously, you can configure Knative Serving to use the proper class for every service.
+
+    ```
+    kubectl patch configmap/config-network \
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
+    ```
+
 
 ## Install the Consumer and Producer
 

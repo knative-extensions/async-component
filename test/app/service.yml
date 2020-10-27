@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: helloworld-sleep
   namespace: default
+  annotations:
+    networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
 spec:
   template:
     metadata:
