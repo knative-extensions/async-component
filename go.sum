@@ -1836,6 +1836,8 @@ knative.dev/caching v0.0.0-20190719140829-2032732871ff/go.mod h1:dHXFU6CGlLlbzaW
 knative.dev/caching v0.0.0-20200116200605-67bca2c83dfa/go.mod h1:dHXFU6CGlLlbzaWc32g80cR92iuBSpsslDNBWI8C7eg=
 knative.dev/eventing-contrib v0.6.1-0.20190723221543-5ce18048c08b/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
+knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68 h1:ygwpOK8B0PXurq88GHhym2uxKiiMJ+bRFwFeZHqGJNc=
+knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/net-contour v0.18.1 h1:Gahrlgbe7gn7Rn/rLoEQuELU03hDcqu3viFnQFiTOeM=
 knative.dev/net-contour v0.18.1/go.mod h1:7YlmCY3IqF8iloYTTYF1ZkzRuGrBAuXTej31GTPLnBg=
 knative.dev/networking v0.0.0-20200922180040-a71b40c69b15/go.mod h1:WphBxM2NFDmDLc5FAJUOdGdgdXbuD/ALSWa//jKw92I=
