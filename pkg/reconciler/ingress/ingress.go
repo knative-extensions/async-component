@@ -16,9 +16,7 @@ import (
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/pkg/system"
 )
 
 // Reconciler implements controller.Reconciler for Ingress resources.
@@ -114,8 +112,8 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 
 // TODO(beemarie) track status of upstream ingress that is created "-new"
 func markIngressReady(ingress *v1alpha1.Ingress) {
-	internalDomain := domainForServiceName(ingress.Name)
-	externalDomain := domainForServiceName(ingress.Name)
+	internalDomain := domainForLocalGateway(ingress.Name)
+	externalDomain := domainForLocalGateway(ingress.Name)
 
 	ingress.Status.MarkLoadBalancerReady(
 		[]v1alpha1.LoadBalancerIngressStatus{{
@@ -128,6 +126,7 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 	ingress.Status.MarkNetworkConfigured()
 }
 
-func domainForServiceName(serviceName string) string {
-	return serviceName + "." + system.Namespace() + ".svc." + network.GetClusterDomainName()
+// TODO(beemarie) we need to pull this from the upstream ingress that is create "-new"
+func domainForLocalGateway(ingressName string) string {
+	return "cluster-local-gateway.istio-system.svc.cluster.local"
 }
