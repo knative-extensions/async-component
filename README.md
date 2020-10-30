@@ -1,6 +1,7 @@
 # Knative Asynchronous Component
 
 >Warning: Experimental and still under development. Not meant for production deployment.
+>Note: This component is currently only functional with Istio as the networking layer.
 
 Asynchronous component to enable async Knative service calls.
 
