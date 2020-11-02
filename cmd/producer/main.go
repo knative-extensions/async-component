@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"strconv"
 	"time"
 
@@ -82,57 +80,46 @@ if async is preferred, then write request to redis.
 if symnchronous is preferred, then proxy the request.
 */
 func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
-	target := &url.URL{
-		Scheme:   "http",
-		Host:     r.Host,
-		RawQuery: r.URL.RawQuery,
+	// if request body exists, check that length doesn't exceed limit
+	requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
+	if err != nil {
+		log.Fatal("Error parsing request size string to integer")
 	}
-	if r.Header.Get("Prefer") == "respond-async" {
-		// if request body exists, check that length doesn't exceed limit
-		requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
-		if err != nil {
-			log.Fatal("Error parsing request size string to integer")
-		}
-		if r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
-		}
-		// write the request into buff
-		var buff = &bytes.Buffer{}
-		if err := r.Write(buff); err != nil {
-			if err.Error() == "http: request body too large" {
-				w.WriteHeader(500)
-			} else {
-				log.Print("Error writing to buffer: ", err)
-				w.WriteHeader(500)
-			}
-			return
-		}
-		// translate to string, then json including an id.
-		reqString := buff.String()
-		id := gouuidv6.NewFromTime(time.Now()).String()
-		reqData := requestData{
-			ID:      id,
-			Request: reqString,
-		}
-		reqJSON, err := json.Marshal(reqData)
-		if err != nil {
+	if r.Body != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
+	}
+	// write the request into buff
+	var buff = &bytes.Buffer{}
+	if err := r.Write(buff); err != nil {
+		if err.Error() == "http: request body too large" {
 			w.WriteHeader(500)
-			log.Println(w, "Failed to marshal request: ", err)
-			return
-		}
-		// write the request information to the storage
-		if writeErr := rc.write(r.Context(), env, reqJSON, reqData.ID); writeErr != nil {
+		} else {
+			log.Print("Error writing to buffer: ", err)
 			w.WriteHeader(500)
-			log.Println("Error asynchronous writing request to storage ", writeErr)
-			return
 		}
-		w.WriteHeader(http.StatusAccepted)
 		return
 	}
-
-	// if the request is not async, proxy the request
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ServeHTTP(w, r)
+	// translate to string, then json including an id.
+	reqString := buff.String()
+	id := gouuidv6.NewFromTime(time.Now()).String()
+	reqData := requestData{
+		ID:      id,
+		Request: reqString,
+	}
+	reqJSON, err := json.Marshal(reqData)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Println(w, "Failed to marshal request: ", err)
+		return
+	}
+	// write the request information to the storage
+	if writeErr := rc.write(r.Context(), env, reqJSON, reqData.ID); writeErr != nil {
+		w.WriteHeader(500)
+		log.Println("Error asynchronous writing request to storage ", writeErr)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+	return
 }
 
 // function to write to redis stream

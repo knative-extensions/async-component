@@ -49,18 +49,6 @@ func TestAsyncRequestHeader(t *testing.T) {
 		body:       "",
 		returncode: 202,
 	}, {
-		name:       "non async get request",
-		async:      false,
-		method:     "GET",
-		body:       "",
-		returncode: 200,
-	}, {
-		name:       "non async post request",
-		async:      false,
-		method:     "POST",
-		body:       `{"body":"this is a body"}`,
-		returncode: 200,
-	}, {
 		name:       "async post request with too large payload",
 		async:      true,
 		method:     "POST",

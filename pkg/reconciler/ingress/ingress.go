@@ -25,6 +25,14 @@ type Reconciler struct {
 	netclient     netclientset.Interface
 }
 
+const (
+	preferHeaderField               = "Prefer"
+	preferAsyncValue                = "respond-async"
+	preferSyncValue                 = "respond-sync"
+	asyncFrequencyTypeAnnotationKey = "async.knative.dev/frequency.type"
+	asyncFrequencyType              = "always.async.knative.dev"
+)
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) reconciler.Event {
 	logger := logging.FromContext(ctx)
@@ -84,13 +92,28 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	for _, rule := range original.Spec.Rules {
 		newRule := rule
 		newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-		newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
-			Headers: map[string]v1alpha1.HeaderMatch{"Prefer": {Exact: "respond-async"}},
-			Splits:  splits,
-		})
-		newPaths = append(newPaths, newRule.HTTP.Paths...)
-		newRule.HTTP.Paths = newPaths
-		theRules = append(theRules, newRule)
+		if ingress.Annotations[asyncFrequencyTypeAnnotationKey] == asyncFrequencyType {
+			for _, path := range rule.HTTP.Paths {
+				defaultPath := path
+				defaultPath.Splits = splits
+				if path.Headers == nil {
+					path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
+				} else {
+					path.Headers[preferHeaderField] = v1alpha1.HeaderMatch{Exact: preferSyncValue}
+				}
+				newPaths = append(newPaths, path, defaultPath)
+				newRule.HTTP.Paths = newPaths
+				theRules = append(theRules, newRule)
+			}
+		} else {
+			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
+				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
+				Splits:  splits,
+			})
+			newPaths = append(newPaths, newRule.HTTP.Paths...)
+			newRule.HTTP.Paths = newPaths
+			theRules = append(theRules, newRule)
+		}
 	}
 	return &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,21 +135,24 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 
 // TODO(beemarie) track status of upstream ingress that is created "-new"
 func markIngressReady(ingress *v1alpha1.Ingress) {
-	internalDomain := domainForLocalGateway(ingress.Name)
-	externalDomain := domainForLocalGateway(ingress.Name)
+	privateDomain := domainForLocalGateway(ingress.Name, true)
+	publicDomain := domainForLocalGateway(ingress.Name, false)
 
 	ingress.Status.MarkLoadBalancerReady(
 		[]v1alpha1.LoadBalancerIngressStatus{{
-			DomainInternal: externalDomain,
+			DomainInternal: publicDomain,
 		}},
 		[]v1alpha1.LoadBalancerIngressStatus{{
-			DomainInternal: internalDomain,
+			DomainInternal: privateDomain,
 		}},
 	)
 	ingress.Status.MarkNetworkConfigured()
 }
 
 // TODO(beemarie) we need to pull this from the upstream ingress that is create "-new"
-func domainForLocalGateway(ingressName string) string {
-	return "cluster-local-gateway.istio-system.svc.cluster.local"
+func domainForLocalGateway(ingressName string, isPrivate bool) string {
+	if isPrivate {
+		return "cluster-local-gateway.istio-system.svc.cluster.local"
+	}
+	return "istio-ingressgateway.istio-system.svc.cluster.local"
 }

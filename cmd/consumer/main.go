@@ -57,7 +57,7 @@ func consumeEvent(event cloudevents.Event) error {
 	}
 	// RequestURI must be unset for client.Do(req)
 	req.RequestURI = ""
-	req.Header.Del("Prefer") // We do not want to make this request as async
+	req.Header.Set("Prefer", "respond-sync") // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("Problem calling url: %w", err)
@@ -71,6 +71,5 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create client, ", err)
 	}
-
 	log.Fatal(c.StartReceiver(context.Background(), consumeEvent))
 }
