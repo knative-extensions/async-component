@@ -31,6 +31,10 @@ const (
 	preferSyncValue                 = "respond-sync"
 	asyncFrequencyTypeAnnotationKey = "async.knative.dev/frequency.type"
 	asyncFrequencyType              = "always.async.knative.dev"
+	publicLBDomain                  = "istio-ingressgateway.istio-system.svc.cluster.local"
+	privateLBDomain                 = "cluster-local-gateway.istio-system.svc.cluster.local"
+	producerService                 = "producer-service" // TODO(beemarie): Do we want this service name configurable?
+	defaultNamespace                = "default"          // TODO(beemarie): This likely shouldn't live in default namespace
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -82,8 +86,8 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 	splits = append(splits, v1alpha1.IngressBackendSplit{
 		IngressBackend: v1alpha1.IngressBackend{
-			ServiceName:      "producer-service", // TODO(beemarie): make this configurable
-			ServiceNamespace: "default",
+			ServiceName:      producerService,
+			ServiceNamespace: defaultNamespace,
 			ServicePort:      intstr.FromInt(80),
 		},
 		Percent: int(100),
@@ -152,7 +156,7 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 // TODO(beemarie) we need to pull this from the upstream ingress that is create "-new"
 func domainForLocalGateway(ingressName string, isPrivate bool) string {
 	if isPrivate {
-		return "cluster-local-gateway.istio-system.svc.cluster.local"
+		return privateLBDomain
 	}
-	return "istio-ingressgateway.istio-system.svc.cluster.local"
+	return publicLBDomain
 }

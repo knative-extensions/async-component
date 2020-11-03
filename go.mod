@@ -6,7 +6,6 @@ require (
 	github.com/bradleypeabody/gouuidv6 v0.0.0-20200224230637-90681a9a9294
 	github.com/cloudevents/sdk-go/v2 v2.2.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.7
-	github.com/google/go-cmp v0.5.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
