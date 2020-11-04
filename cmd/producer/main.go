@@ -99,7 +99,7 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	// translate to string, then json including an id.
+	// Translate to string, then json including an id.
 	reqString := buff.String()
 	id := gouuidv6.NewFromTime(time.Now()).String()
 	reqData := requestData{
