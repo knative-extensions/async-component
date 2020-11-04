@@ -44,25 +44,21 @@ func TestAsyncRequestHeader(t *testing.T) {
 		returncode       int
 	}{{
 		name:       "async get request",
-		async:      true,
 		method:     "GET",
 		body:       "",
 		returncode: 202,
 	}, {
 		name:       "async post request with too large payload",
-		async:      true,
 		method:     "POST",
 		body:       `{"body":"this is a larger body"}`,
 		returncode: 500,
 	}, {
 		name:       "async post request with smaller than limit payload",
-		async:      true,
 		method:     "POST",
 		body:       `{"body":"this is a body"}`,
 		returncode: 202,
 	}, {
 		name:       "test failure to write to Redis",
-		async:      true,
 		method:     "POST",
 		body:       "failure",
 		returncode: 500,
@@ -83,12 +79,9 @@ func TestAsyncRequestHeader(t *testing.T) {
 				}
 				request, _ = http.NewRequest(http.MethodPost, testserver.URL, body)
 			}
-			if test.async {
-				request.Header.Set("Prefer", "respond-async")
-			}
 
 			rr := httptest.NewRecorder()
-			checkHeaderAndServe(rr, request)
+			handleRequest(rr, request)
 
 			got := rr.Code
 			want := test.returncode

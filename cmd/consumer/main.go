@@ -31,6 +31,11 @@ type request struct {
 	Req string `json:"request"`
 }
 
+const (
+	preferHeaderField = "Prefer"
+	preferSyncValue   = "respond-sync"
+)
+
 func consumeEvent(event cloudevents.Event) error {
 	data := &request{}
 	datastrings := make([]string, 0)
@@ -57,7 +62,7 @@ func consumeEvent(event cloudevents.Event) error {
 	}
 	// RequestURI must be unset for client.Do(req)
 	req.RequestURI = ""
-	req.Header.Set("Prefer", "respond-sync") // We do not want to make this request as async
+	req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("Problem calling url: %w", err)
