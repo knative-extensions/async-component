@@ -47,20 +47,20 @@ type myRedis struct {
 	client redis.Cmdable
 }
 
-// request size limit in bytes
+// Request size limit in bytes.
 const bitsInMB = 1000000
 
 var env envInfo
 var rc redisInterface
 
 func main() {
-	// get env info for queue
+	// Get env info for queue.
 	err := envconfig.Process("", &env)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	// set up redis client
+	// Set up redis client.
 	opts := &redis.UniversalOptions{
 		Addrs: []string{env.RedisAddress},
 	}
@@ -68,18 +68,18 @@ func main() {
 		client: redis.NewUniversalClient(opts),
 	}
 
-	// Start an HTTP Server
+	// Start an HTTP Server,
 	http.HandleFunc("/", handleRequest)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-// handle requests coming to producer service by error checking and writing to storage
+// Handle requests coming to producer service by error checking and writing to storage.
 func handleRequest(w http.ResponseWriter, r *http.Request) {
-	// if request body exists, check that length doesn't exceed limit
+	// If request body exists, check that length doesn't exceed limit.
 	if r.Body != nil {
 		r.Body = http.MaxBytesReader(w, r.Body, env.RequestSizeLimit)
 	}
-	// Write the request into buff
+	// Write the request into buff.
 	var buff = &bytes.Buffer{}
 	if err := r.Write(buff); err != nil {
 		if err.Error() == "http: request body too large" {
@@ -104,7 +104,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		log.Println(w, "Failed to marshal request: ", err)
 		return
 	}
-	// write the request information to the storage
+	// Write the request information to the storage.
 	if writeErr := rc.write(r.Context(), env, reqJSON, reqData.ID); writeErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("Error asynchronous writing request to storage ", writeErr)
@@ -114,7 +114,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// function to write to redis stream
+// Function to write to redis stream.
 func (mr *myRedis) write(ctx context.Context, s envInfo, reqJSON []byte, id string) (err error) {
 	strCMD := mr.client.XAdd(ctx, &redis.XAddArgs{
 		Stream: s.StreamName,
