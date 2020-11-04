@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/bradleypeabody/gouuidv6"
@@ -32,7 +31,7 @@ import (
 type envInfo struct {
 	StreamName       string `envconfig:"REDIS_STREAM_NAME"`
 	RedisAddress     string `envconfig:"REDIS_ADDRESS"`
-	RequestSizeLimit string `envconfig:"REQUEST_SIZE_LIMIT"`
+	RequestSizeLimit int64  `envconfig:"REQUEST_SIZE_LIMIT"`
 }
 
 type requestData struct {
@@ -77,20 +76,19 @@ func main() {
 // handle requests coming to producer service by error checking and writing to storage
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// if request body exists, check that length doesn't exceed limit
-	requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
-	if err != nil {
-		log.Fatal("Error parsing request size string to integer")
-	}
+	requestSizeInt := env.RequestSizeLimit
+
 	if r.Body != nil {
-		r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
+		r.Body = http.MaxBytesReader(w, r.Body, requestSizeInt)
 	}
 	// Write the request into buff
 	var buff = &bytes.Buffer{}
 	if err := r.Write(buff); err != nil {
 		if err.Error() == "http: request body too large" {
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			log.Print("Error writing to buffer: ", err)
+			log.Println("Error writing to buffer: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return

@@ -69,7 +69,7 @@ func TestAsyncRequestHeader(t *testing.T) {
 			env = envInfo{
 				StreamName:       "mystream",
 				RedisAddress:     "address",
-				RequestSizeLimit: "25",
+				RequestSizeLimit: 25,
 			}
 			request, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
 			if test.method == "POST" {
