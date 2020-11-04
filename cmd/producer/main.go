@@ -76,10 +76,8 @@ func main() {
 // handle requests coming to producer service by error checking and writing to storage
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// if request body exists, check that length doesn't exceed limit
-	requestSizeInt := env.RequestSizeLimit
-
 	if r.Body != nil {
-		r.Body = http.MaxBytesReader(w, r.Body, requestSizeInt)
+		r.Body = http.MaxBytesReader(w, r.Body, env.RequestSizeLimit)
 	}
 	// Write the request into buff
 	var buff = &bytes.Buffer{}
