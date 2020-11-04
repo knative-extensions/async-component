@@ -88,7 +88,7 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
 	}
-	// write the request into buff
+	// Write the request into buff
 	var buff = &bytes.Buffer{}
 	if err := r.Write(buff); err != nil {
 		if err.Error() == "http: request body too large" {
