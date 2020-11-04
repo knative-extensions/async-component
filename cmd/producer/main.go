@@ -80,7 +80,7 @@ if async is preferred, then write request to redis.
 if symnchronous is preferred, then proxy the request.
 */
 func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
-	// if request body exists, check that length doesn't exceed limit
+	// If request body exists, check that length doesn't exceed limit.
 	requestSizeInt, err := strconv.Atoi(env.RequestSizeLimit)
 	if err != nil {
 		log.Fatal("Error parsing request size string to integer")
