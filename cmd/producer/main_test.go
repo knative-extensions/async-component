@@ -27,7 +27,7 @@ type fakeRedis struct {
 	client redis.Cmdable
 }
 
-func TestAsyncRequestHeader(t *testing.T) {
+func TestHandleRequest(t *testing.T) {
 	testserver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" && r.Method != "POST" {
 			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)

@@ -52,6 +52,7 @@ type myRedis struct {
 
 var env envInfo
 var rc redisInterface
+var now = time.Now
 
 func main() {
 	// Get env info for queue.
@@ -93,7 +94,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	// Translate to string, then json including an id.
 	reqString := buff.String()
-	id := gouuidv6.NewFromTime(time.Now()).String()
+	id := gouuidv6.NewFromTime(now()).String()
 	reqData := requestData{
 		ID:      id,
 		Request: reqString,
@@ -101,7 +102,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	reqJSON, err := json.Marshal(reqData)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Println(w, "Failed to marshal request: ", err)
+		log.Println("Failed to marshal request: ", err)
 		return
 	}
 	// Write the request information to the storage.
