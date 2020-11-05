@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	sharedmain.Main("controller",
+	sharedmain.Main("async-controller",
 		ingress.NewController,
 	)
 }
