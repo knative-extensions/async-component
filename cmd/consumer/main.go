@@ -65,7 +65,7 @@ func consumeEvent(event cloudevents.Event) error {
 	req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Problem calling url: %w", err)
+		return fmt.Errorf("problem calling url: %w", err)
 	}
 	defer resp.Body.Close()
 	return nil
