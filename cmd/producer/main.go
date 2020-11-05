@@ -105,9 +105,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Write the request information to the storage.
-	if writeErr := rc.write(r.Context(), env, reqJSON, reqData.ID); writeErr != nil {
+	if err = rc.write(r.Context(), env, reqJSON, reqData.ID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("Error asynchronous writing request to storage ", writeErr)
+		log.Println("Error asynchronous writing request to storage ", err)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
