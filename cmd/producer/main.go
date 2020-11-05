@@ -28,6 +28,9 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// Request size limit in bytes.
+const bytesInMB = 1000000
+
 type envInfo struct {
 	StreamName       string `envconfig:"REDIS_STREAM_NAME"`
 	RedisAddress     string `envconfig:"REDIS_ADDRESS"`
@@ -46,9 +49,6 @@ type redisInterface interface {
 type myRedis struct {
 	client redis.Cmdable
 }
-
-// Request size limit in bytes.
-const bitsInMB = 1000000
 
 var env envInfo
 var rc redisInterface
@@ -114,7 +114,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Function to write to redis stream.
+// Function to write to Redis stream.
 func (mr *myRedis) write(ctx context.Context, s envInfo, reqJSON []byte, id string) (err error) {
 	strCMD := mr.client.XAdd(ctx, &redis.XAddArgs{
 		Stream: s.StreamName,
