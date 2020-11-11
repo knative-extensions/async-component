@@ -17,9 +17,8 @@ import (
 	"context"
 	"testing"
 
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-	fakestatusmanager "knative.dev/networking/pkg/testing/status"
+
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/reconciler"
 
@@ -36,9 +35,6 @@ import (
 
 // Ctor functions create a k8s controller with given params.
 type Ctor func(context.Context, *Listers, configmap.Watcher) controller.Reconciler
-
-// FakeStatusManagerKey is a key for retrieving the FakeStatusManager in a test
-var FakeStatusManagerKey struct{}
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) rtesting.Factory {
@@ -58,16 +54,6 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		ctx, client := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-
-		ctx = context.WithValue(ctx, FakeStatusManagerKey, &fakestatusmanager.FakeStatusManager{
-			FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
-				return true, nil
-			},
-		})
-
-		// This is needed by the Configuration controller tests, which
-		// use GenerateName to produce Revisions.
-		rtesting.PrependGenerateNameReactor(&client.Fake)
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
