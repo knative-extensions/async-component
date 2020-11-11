@@ -2,6 +2,7 @@ apiVersion: sources.knative.dev/v1alpha1
 kind: RedisStreamSource
 metadata:
   name: mystream
+  namespace: knative-serving
 spec:
   address: "redis.redis.svc.cluster.local:6379"
   stream: mystream

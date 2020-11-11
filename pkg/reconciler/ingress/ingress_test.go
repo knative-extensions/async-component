@@ -137,8 +137,8 @@ func withAnnotations(ans map[string]string) ingressCreationOption {
 }
 
 func withHeaderPaths() ingressCreationOption {
-	return func(ing *v1alpha1.Ingress) {
-		for _, rule := range ing.Spec.Rules {
+	return func(ingress *v1alpha1.Ingress) {
+		for _, rule := range ingress.Spec.Rules {
 
 			newPaths := make([]v1alpha1.HTTPIngressPath, 0)
 			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
@@ -146,8 +146,8 @@ func withHeaderPaths() ingressCreationOption {
 				Splits: []v1alpha1.IngressBackendSplit{
 					{
 						IngressBackend: netv1alpha1.IngressBackend{
-							ServiceName:      "producer-service",
-							ServiceNamespace: "default",
+							ServiceName:      ing.Name + asyncSuffix,
+							ServiceNamespace: ing.Namespace,
 							ServicePort:      intstr.FromInt(80),
 						},
 						Percent: 100}},

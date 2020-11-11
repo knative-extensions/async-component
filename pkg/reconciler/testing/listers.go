@@ -14,7 +14,10 @@ limitations under the License.
 package ingress
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	networking "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
@@ -24,6 +27,7 @@ import (
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakenetworkingclientset.AddToScheme,
+	fakekubeclientset.AddToScheme,
 }
 
 type Listers struct {
@@ -60,6 +64,10 @@ func (l *Listers) IndexerFor(obj runtime.Object) cache.Indexer {
 	return l.sorter.IndexerForObjectType(obj)
 }
 
+func (l *Listers) GetKubeObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakekubeclientset.AddToScheme)
+}
+
 func (l *Listers) GetNetworkingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakenetworkingclientset.AddToScheme)
 }
@@ -67,4 +75,8 @@ func (l *Listers) GetNetworkingObjects() []runtime.Object {
 // GetIngressLister get lister for Ingress resource.
 func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
 	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))
+}
+
+func (l *Listers) GetK8sServiceLister() corev1listers.ServiceLister {
+	return corev1listers.NewServiceLister(l.IndexerFor(&corev1.Service{}))
 }

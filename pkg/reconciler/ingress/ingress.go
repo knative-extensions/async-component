@@ -14,6 +14,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
@@ -25,6 +26,10 @@ type Reconciler struct {
 	netclient     netclientset.Interface
 }
 
+const (
+	asyncSuffix = "-async"
+)
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) reconciler.Event {
 	logger := logging.FromContext(ctx)
@@ -32,7 +37,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	ingressClass := networkpkg.IstioIngressClassName
 
 	markIngressReady(ing) //TODO(beemarie): this just sets the status of KIngress, but load balancer isn't needed.
-
 	desired := makeNewIngress(ing, ingressClass)
 	_, err := r.reconcileIngress(ctx, desired)
 	if err != nil {
@@ -74,8 +78,8 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 	splits = append(splits, v1alpha1.IngressBackendSplit{
 		IngressBackend: v1alpha1.IngressBackend{
-			ServiceName:      "producer-service", // TODO(beemarie): make this configurable
-			ServiceNamespace: "default",
+			ServiceName:      kmeta.ChildName(ingress.Name, asyncSuffix), // TODO(beemarie): make this configurable
+			ServiceNamespace: original.Namespace,
 			ServicePort:      intstr.FromInt(80),
 		},
 		Percent: int(100),

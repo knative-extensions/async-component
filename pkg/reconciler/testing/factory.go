@@ -20,6 +20,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakestatusmanager "knative.dev/networking/pkg/testing/status"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,6 +57,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
 
 		ctx, client := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
+		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
 
 		ctx = context.WithValue(ctx, FakeStatusManagerKey, &fakestatusmanager.FakeStatusManager{
 			FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
@@ -89,7 +91,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{client}
+		actionRecorderList := rtesting.ActionRecorderList{client, kubeClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList

@@ -15,6 +15,7 @@ package main
 
 import (
 	"knative.dev/async-component/pkg/reconciler/ingress"
+	"knative.dev/async-component/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
@@ -23,5 +24,6 @@ import (
 func main() {
 	sharedmain.Main("async-controller",
 		ingress.NewController,
+		service.NewController,
 	)
 }
