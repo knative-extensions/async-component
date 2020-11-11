@@ -28,7 +28,6 @@ import (
 	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 
 	v1alpha1ingress "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 )
 
 const (
@@ -43,11 +42,9 @@ func NewController(
 	logger := logging.FromContext(ctx)
 
 	ingressInformer := ingressinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
 
 	r := &Reconciler{
 		ingressLister: ingressInformer.Lister(),
-		serviceLister: serviceInformer.Lister(),
 		kubeclient:    kubeclient.Get(ctx),
 	}
 	impl := v1alpha1ingress.NewImpl(ctx, r, asyncIngressClassName)
@@ -64,8 +61,6 @@ func NewController(
 		FilterFunc: classFilter,
 		Handler:    controller.HandleAll(impl.Enqueue),
 	})
-
-	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	return impl
 }

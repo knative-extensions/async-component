@@ -48,24 +48,6 @@ type testConfigStore struct {
 var svc = service("default", "testing")
 var ing = ingress("default", "testing", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: asyncIngressClassName}))
 
-// var createdIng = ingress("default", "test-ingress-new", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withHeaderPaths())
-
-// func TestMakeNewIngress(t *testing.T) {
-// 	got := makeNewIngress(ing, network.IstioIngressClassName)
-// 	want := createdIng
-// 	if !cmp.Equal(want, got) {
-// 		t.Errorf("Unexpected Ingress (-want, +got):\n%s", cmp.Diff(want, got))
-// 	}
-// }
-
-// func TestMarkIngressReady(t *testing.T) {
-// 	markIngressReady(ing)
-// 	got := ing.Status.Conditions
-// 	if got == nil {
-// 		t.Fatal("Expected Conditions to return a non-nil value")
-// 	}
-// }
-
 func TestReconcile(t *testing.T) {
 	ing.Status.InitializeConditions()
 	table := TableTest{{
