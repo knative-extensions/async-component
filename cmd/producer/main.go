@@ -81,26 +81,26 @@ func main() {
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Check that body length doesn't exceed limit.
 	r.Body = http.MaxBytesReader(w, r.Body, env.RequestSizeLimit)
-  // read the request body
-  b, err := ioutil.ReadAll(r.Body)
-  if err != nil {
-    if err.Error() == "http: request body too large" {
-      w.WriteHeader(http.StatusInternalServerError)
-    } else {
-      log.Print("Error writing to buffer: ", err)
-      w.WriteHeader(http.StatusInternalServerError)
-    }
-    return
-  }
-  reqBodyString = string(b)
+	// read the request body
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		if err.Error() == "http: request body too large" {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			log.Print("Error writing to buffer: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+	reqBodyString := string(b)
 	id := gouuidv6.NewFromTime(now()).String()
-  reqData := requestData{
-    ID:        id,
-    ReqBody:   reqBodyString,
-    ReqURL:    "http://" + r.Host + r.URL.String(),
-    ReqHeader: r.Header,
-    ReqMethod: r.Method,
-  }
+	reqData := requestData{
+		ID:        id,
+		ReqBody:   reqBodyString,
+		ReqURL:    "http://" + r.Host + r.URL.String(),
+		ReqHeader: r.Header,
+		ReqMethod: r.Method,
+	}
 	reqJSON, err := json.Marshal(reqData)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

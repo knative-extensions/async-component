@@ -50,7 +50,10 @@ func consumeEvent(event cloudevents.Event) error {
 	client := &http.Client{}
 	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, nil)
 	req.Header = data.ReqHeader
-	req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
+	if req.Header == nil {
+		req.Header = make(map[string][]string)
+		req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("problem calling url: %w", err)
