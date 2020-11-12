@@ -46,22 +46,22 @@ func TestHandleRequest(t *testing.T) {
 		name:       "async get request",
 		method:     "GET",
 		body:       "",
-		returncode: 202,
+		returncode: http.StatusAccepted,
 	}, {
 		name:       "async post request with too large payload",
 		method:     "POST",
 		body:       `{"body":"this is a larger body"}`,
-		returncode: 500,
+		returncode: http.StatusInternalServerError,
 	}, {
 		name:       "async post request with smaller than limit payload",
 		method:     "POST",
 		body:       `{"body":"this is a body"}`,
-		returncode: 202,
+		returncode: http.StatusAccepted,
 	}, {
 		name:       "test failure to write to Redis",
 		method:     "POST",
 		body:       "failure",
-		returncode: 500,
+		returncode: http.StatusInternalServerError,
 	},
 	}
 	for _, test := range tests {
