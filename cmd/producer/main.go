@@ -38,11 +38,11 @@ type envInfo struct {
 }
 
 type requestData struct {
-	ID        string              //`json:"id"`
-	ReqURL    string              //`json:"request"`
-	ReqBody   string              //`json:"body"`
-	ReqHeader map[string][]string //`json:"header"`
-	ReqMethod string              //`json:"string"`
+	ID        string              `json:"id"`
+	ReqURL    string              `json:"url"`
+	ReqBody   string              `json:"body"`
+	ReqHeader map[string][]string `json:"header"`
+	ReqMethod string              `json:"method"`
 }
 
 type redisInterface interface {
