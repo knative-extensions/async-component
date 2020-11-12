@@ -20,21 +20,24 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/net-contour/pkg/reconciler/contour/config"
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	ingressreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 
-	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	. "knative.dev/async-component/pkg/reconciler/testing"
 	network "knative.dev/networking/pkg"
+
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -45,44 +48,90 @@ type testConfigStore struct {
 	config *config.Config
 }
 
-var ing = ingress("default", "test-ingress", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: asyncIngressClassName}))
-var createdIng = ingress("default", "test-ingress-new", withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withHeaderPaths())
-
-func TestMakeNewIngress(t *testing.T) {
-	got := makeNewIngress(ing, network.IstioIngressClassName)
-	want := createdIng
-	if !cmp.Equal(want, got) {
-		t.Errorf("Unexpected Ingress (-want, +got):\n%s", cmp.Diff(want, got))
-	}
+var statusReady = v1alpha1.IngressStatus{
+	PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+		Ingress: []v1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: publicLBDomain},
+		},
+	},
+	PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+		Ingress: []v1alpha1.LoadBalancerIngressStatus{
+			{DomainInternal: privateLBDomain},
+		},
+	},
+	Status: duckv1.Status{
+		Conditions: duckv1.Conditions{{
+			Type:   v1alpha1.IngressConditionLoadBalancerReady,
+			Status: corev1.ConditionTrue,
+		}, {
+			Type:   v1alpha1.IngressConditionNetworkConfigured,
+			Status: corev1.ConditionTrue,
+		}, {
+			Type:   v1alpha1.IngressConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	},
 }
 
-func TestMarkIngressReady(t *testing.T) {
-	markIngressReady(ing)
-	got := ing.Status.Conditions
-	if got == nil {
-		t.Fatal("Expected Conditions to return a non-nil value")
-	}
+var statusUnknown = v1alpha1.IngressStatus{
+	Status: duckv1.Status{
+		Conditions: duckv1.Conditions{{
+			Type:   v1alpha1.IngressConditionLoadBalancerReady,
+			Status: corev1.ConditionUnknown,
+		}, {
+			Type:   v1alpha1.IngressConditionNetworkConfigured,
+			Status: corev1.ConditionUnknown,
+		}, {
+			Type:   v1alpha1.IngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	},
 }
+
+var ingWithAsyncAnnotation = ingress(defaultNamespace, "test-ingress", statusReady,
+	withAnnotations(map[string]string{
+		networking.IngressClassAnnotationKey: asyncIngressClassName,
+	}))
+var ingAlwaysAsync = ingress(defaultNamespace, "test-ingress-always", statusReady,
+	withAnnotations(map[string]string{
+		networking.IngressClassAnnotationKey: asyncIngressClassName,
+		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
+	}),
+)
+var createdIng = ingress(defaultNamespace, "test-ingress-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
+var createdIngWithAsyncAlways = ingress(defaultNamespace, "test-ingress-always-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
-	table := TableTest{{
-		Name: "skip ingress not matching class key",
-		Objects: []runtime.Object{
-			ingress("testing", "testing", withAnnotations(
-				map[string]string{networking.IngressClassAnnotationKey: "fake-class-annotation"})),
-		},
-	},
+	table := TableTest{
 		{
-			Name: "create new ingress",
+			Name: "skip ingress not matching class key",
+			Objects: []runtime.Object{
+				ingress("testing", "testing", statusReady, withAnnotations(
+					map[string]string{networking.IngressClassAnnotationKey: "fake-class-annotation"})),
+			},
+		},
+		{
+			Name: "create new ingress with async annotation",
 			Key:  "default/test-ingress",
 			Objects: []runtime.Object{
-				ing,
+				ingWithAsyncAnnotation,
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
 			},
-		}}
+		},
+		{
+			Name: "create new ingress with async annotation and always frequency type",
+			Key:  "default/test-ingress-always",
+			Objects: []runtime.Object{
+				ingAlwaysAsync,
+			},
+			WantCreates: []runtime.Object{
+				createdIngWithAsyncAlways,
+			},
+		},
+	}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
@@ -96,7 +145,7 @@ func TestReconcile(t *testing.T) {
 
 type ingressCreationOption func(ing *v1alpha1.Ingress)
 
-func ingress(namespace, name string, opt ...ingressCreationOption) *v1alpha1.Ingress {
+func ingress(namespace, name string, status v1alpha1.IngressStatus, opt ...ingressCreationOption) *v1alpha1.Ingress {
 	ing := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -123,6 +172,7 @@ func ingress(namespace, name string, opt ...ingressCreationOption) *v1alpha1.Ing
 				},
 			}},
 		},
+		Status: status,
 	}
 	for _, o := range opt {
 		o(ing)
@@ -136,24 +186,44 @@ func withAnnotations(ans map[string]string) ingressCreationOption {
 	}
 }
 
-func withHeaderPaths() ingressCreationOption {
-	return func(ingress *v1alpha1.Ingress) {
-		for _, rule := range ingress.Spec.Rules {
-
+func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
+	return func(ing *v1alpha1.Ingress) {
+		splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
+		splits = append(splits, v1alpha1.IngressBackendSplit{
+			IngressBackend: v1alpha1.IngressBackend{
+				ServiceName:      ing.Name + asyncSuffix, // TODO(beemarie): make this configurable
+				ServiceNamespace: ing.Namespace,
+				ServicePort:      intstr.FromInt(80),
+			},
+			Percent: int(100),
+		})
+		theRules := []v1alpha1.IngressRule{}
+		for _, rule := range ing.Spec.Rules {
+			newRule := rule
 			newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
-				Headers: map[string]v1alpha1.HeaderMatch{"Prefer": {Exact: "respond-async"}},
-				Splits: []v1alpha1.IngressBackendSplit{
-					{
-						IngressBackend: netv1alpha1.IngressBackend{
-							ServiceName:      ing.Name + asyncSuffix,
-							ServiceNamespace: ing.Namespace,
-							ServicePort:      intstr.FromInt(80),
-						},
-						Percent: 100}},
-			})
-			newPaths = append(newPaths, rule.HTTP.Paths...)
-			rule.HTTP.Paths = newPaths
+			if isAlwaysAsync {
+				for _, path := range rule.HTTP.Paths {
+					defaultPath := path
+					defaultPath.Splits = splits
+					if path.Headers == nil {
+						path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
+					} else {
+						path.Headers[preferHeaderField] = v1alpha1.HeaderMatch{Exact: preferSyncValue}
+					}
+					newPaths = append(newPaths, path, defaultPath)
+					newRule.HTTP.Paths = newPaths
+					theRules = append(theRules, newRule)
+				}
+			} else {
+				newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
+					Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
+					Splits:  splits,
+				})
+				newPaths = append(newPaths, newRule.HTTP.Paths...)
+				newRule.HTTP.Paths = newPaths
+				theRules = append(theRules, newRule)
+			}
 		}
+		ing.Spec.Rules = theRules
 	}
 }
