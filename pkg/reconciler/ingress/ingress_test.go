@@ -188,11 +188,21 @@ func withAnnotations(ans map[string]string) ingressCreationOption {
 
 func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 	return func(ing *v1alpha1.Ingress) {
+		// Get ingress name depending on async property
+		var ingName string
+		var ingNamespace string
+		if isAlwaysAsync {
+			ingName = ingAlwaysAsync.Name
+			ingNamespace = ingAlwaysAsync.Namespace
+		} else {
+			ingName = ingWithAsyncAnnotation.Name
+			ingNamespace = ingWithAsyncAnnotation.Namespace
+		}
 		splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 		splits = append(splits, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
-				ServiceName:      ing.Name + asyncSuffix, // TODO(beemarie): make this configurable
-				ServiceNamespace: ing.Namespace,
+				ServiceName:      ingName + asyncSuffix, // TODO(beemarie): make this configurable
+				ServiceNamespace: ingNamespace,
 				ServicePort:      intstr.FromInt(80),
 			},
 			Percent: int(100),
