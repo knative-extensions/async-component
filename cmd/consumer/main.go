@@ -14,21 +14,21 @@ limitations under the License.
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 type request struct {
-	ID  string `json:"id"`
-	Req string `json:"request"`
+	ID        string              //`json:"id"`
+	ReqURL    string              //`json:"request"`
+	ReqBody   string              //`json:"body"`
+	ReqHeader map[string][]string //`json:"header"`
+	ReqMethod string              //`json:"string"`
 }
 
 func consumeEvent(event cloudevents.Event) error {
@@ -41,22 +41,10 @@ func consumeEvent(event cloudevents.Event) error {
 		return fmt.Errorf("error unmarshalling json: %w", err)
 	}
 
-	// deserialize the request
-	r := bufio.NewReader(strings.NewReader(data.Req))
-	req, err := http.ReadRequest(r)
-	if err != nil {
-		return fmt.Errorf("problem reading request: %w", err)
-	}
 	// client for sending request
 	client := &http.Client{}
-
-	// build new url - writing the request removes the URL and places in URI.
-	req.URL, err = url.Parse("http://" + req.Host + req.RequestURI)
-	if err != nil {
-		return fmt.Errorf("Problem parsing url: %w", err)
-	}
-	// RequestURI must be unset for client.Do(req)
-	req.RequestURI = ""
+	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, nil)
+	req.Header = data.ReqHeader
 	req.Header.Del("Prefer") // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {

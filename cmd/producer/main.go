@@ -14,10 +14,10 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -38,8 +38,11 @@ type envInfo struct {
 }
 
 type requestData struct {
-	ID      string //`json:"id"`
-	Request string //`json:"request"`
+	ID        string              //`json:"id"`
+	ReqURL    string              //`json:"request"`
+	ReqBody   string              //`json:"body"`
+	ReqHeader map[string][]string //`json:"header"`
+	ReqMethod string              //`json:"string"`
 }
 
 type redisInterface interface {
@@ -93,26 +96,29 @@ func checkHeaderAndServe(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal("Error parsing request size string to integer")
 		}
+		reqBodyString := ""
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, int64(requestSizeInt))
-		}
-		// write the request into buff
-		var buff = &bytes.Buffer{}
-		if err := r.Write(buff); err != nil {
-			if err.Error() == "http: request body too large" {
-				w.WriteHeader(500)
-			} else {
-				log.Print("Error writing to buffer: ", err)
-				w.WriteHeader(500)
+			// read the request body
+			b, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				if err.Error() == "http: request body too large" {
+					w.WriteHeader(500)
+				} else {
+					log.Print("Error writing to buffer: ", err)
+					w.WriteHeader(500)
+				}
+				return
 			}
-			return
+			reqBodyString = string(b)
 		}
-		// translate to string, then json including an id.
-		reqString := buff.String()
 		id := gouuidv6.NewFromTime(time.Now()).String()
 		reqData := requestData{
-			ID:      id,
-			Request: reqString,
+			ID:        id,
+			ReqBody:   reqBodyString,
+			ReqURL:    "http://" + r.Host + r.URL.String(),
+			ReqHeader: r.Header,
+			ReqMethod: r.Method,
 		}
 		reqJSON, err := json.Marshal(reqData)
 		if err != nil {

@@ -14,7 +14,6 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"net/http"
@@ -46,37 +45,38 @@ func TestConsumeEvent(t *testing.T) {
 		}
 	}))
 
-	getreq, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
-	postreq, _ := http.NewRequest(http.MethodPost, testserver.URL, nil)
-	badreq, _ := http.NewRequest(http.MethodGet, "http://badurl", nil)
-
 	tests := []struct {
 		name        string
-		reqString   string
+		method      string
+		reqURL      string
 		expectedErr string
 	}{{
 		name:        "proper request data, get request",
-		reqString:   getRequestString(getreq, t),
+		method:      http.MethodGet,
+		reqURL:      testserver.URL,
 		expectedErr: "",
 	}, {
 		name:        "proper request data, post request",
-		reqString:   getRequestString(postreq, t),
+		method:      http.MethodPost,
+		reqURL:      testserver.URL,
 		expectedErr: "",
 	}, {
 		name:        "bad url format",
-		reqString:   getRequestString(badreq, t),
+		method:      http.MethodGet,
+		reqURL:      "http://badurl",
 		expectedErr: "no such host",
 	}, {
-		name:        "no request data, get request",
-		reqString:   "",
-		expectedErr: "EOF",
+		name:        "no request URL, get request",
+		method:      http.MethodGet,
+		reqURL:      "",
+		expectedErr: "unsupported protocol scheme",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// create data for Request. This is how xadd formats data when added to a
-			// stream: ["data","id: a123, request: a123"] (an array of strings)
+			// create data for Request.
 			data.ID = "123"
-			data.Req = test.reqString
+			data.ReqURL = test.reqURL
+			data.ReqMethod = test.method
 
 			// marshal data to json and then translate to string to encode as base64
 			out, err := json.Marshal(data)
@@ -99,13 +99,4 @@ func TestConsumeEvent(t *testing.T) {
 			}
 		})
 	}
-}
-
-func getRequestString(theReq *http.Request, t *testing.T) string {
-	// write the request into b
-	var b = &bytes.Buffer{}
-	if err := theReq.Write(b); err != nil {
-		t.Errorf("Error writing request to buffer")
-	}
-	return b.String()
 }
