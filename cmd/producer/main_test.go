@@ -71,13 +71,13 @@ func TestHandleRequest(t *testing.T) {
 				RedisAddress:     "address",
 				RequestSizeLimit: 25,
 			}
-			request, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
+			request := httptest.NewRequest(http.MethodGet, testserver.URL, nil)
 			if test.method == "POST" {
 				var body *strings.Reader
 				if test.body != "" {
 					body = strings.NewReader(test.body)
 				}
-				request, _ = http.NewRequest(http.MethodPost, testserver.URL, body)
+				request = httptest.NewRequest(http.MethodPost, testserver.URL, body)
 			}
 
 			rr := httptest.NewRecorder()
