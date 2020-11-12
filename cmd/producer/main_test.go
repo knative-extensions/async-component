@@ -27,7 +27,7 @@ type fakeRedis struct {
 	client redis.Cmdable
 }
 
-func TestAsyncRequestHeader(t *testing.T) {
+func TestHandleRequest(t *testing.T) {
 	testserver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" && r.Method != "POST" {
 			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)
@@ -44,40 +44,24 @@ func TestAsyncRequestHeader(t *testing.T) {
 		returncode       int
 	}{{
 		name:       "async get request",
-		async:      true,
 		method:     "GET",
 		body:       "",
-		returncode: 202,
-	}, {
-		name:       "non async get request",
-		async:      false,
-		method:     "GET",
-		body:       "",
-		returncode: 200,
-	}, {
-		name:       "non async post request",
-		async:      false,
-		method:     "POST",
-		body:       `{"body":"this is a body"}`,
-		returncode: 200,
+		returncode: http.StatusAccepted,
 	}, {
 		name:       "async post request with too large payload",
-		async:      true,
 		method:     "POST",
 		body:       `{"body":"this is a larger body"}`,
-		returncode: 500,
+		returncode: http.StatusInternalServerError,
 	}, {
 		name:       "async post request with smaller than limit payload",
-		async:      true,
 		method:     "POST",
 		body:       `{"body":"this is a body"}`,
-		returncode: 202,
+		returncode: http.StatusAccepted,
 	}, {
 		name:       "test failure to write to Redis",
-		async:      true,
 		method:     "POST",
 		body:       "failure",
-		returncode: 500,
+		returncode: http.StatusInternalServerError,
 	},
 	}
 	for _, test := range tests {
@@ -85,22 +69,19 @@ func TestAsyncRequestHeader(t *testing.T) {
 			env = envInfo{
 				StreamName:       "mystream",
 				RedisAddress:     "address",
-				RequestSizeLimit: "25",
+				RequestSizeLimit: 25,
 			}
-			request, _ := http.NewRequest(http.MethodGet, testserver.URL, nil)
+			request := httptest.NewRequest(http.MethodGet, testserver.URL, nil)
 			if test.method == "POST" {
 				var body *strings.Reader
 				if test.body != "" {
 					body = strings.NewReader(test.body)
 				}
-				request, _ = http.NewRequest(http.MethodPost, testserver.URL, body)
-			}
-			if test.async {
-				request.Header.Set("Prefer", "respond-async")
+				request = httptest.NewRequest(http.MethodPost, testserver.URL, body)
 			}
 
 			rr := httptest.NewRecorder()
-			checkHeaderAndServe(rr, request)
+			handleRequest(rr, request)
 
 			got := rr.Code
 			want := test.returncode
