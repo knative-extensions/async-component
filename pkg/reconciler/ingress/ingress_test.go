@@ -105,8 +105,8 @@ var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusRea
 		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
 	}),
 )
-var createdIng = ingress(defaultNamespace, testingName+"-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
-var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName+"-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
+var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
+var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()

@@ -32,6 +32,7 @@ type Reconciler struct {
 
 const (
 	asyncSuffix                     = "-async"
+	newSuffix                       = "-new"
 	preferHeaderField               = "Prefer"
 	preferAsyncValue                = "respond-async"
 	preferSyncValue                 = "respond-sync"
@@ -131,7 +132,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 	return &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      original.Name + "-new",
+			Name:      original.Name + newSuffix,
 			Namespace: original.Namespace,
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
