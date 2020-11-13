@@ -26,6 +26,7 @@ import (
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 
 	ingressreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
@@ -49,7 +50,9 @@ type testConfigStore struct {
 }
 
 const (
-	defaultNamespace = "default"
+	defaultNamespace       = "default"
+	testingName            = "testing"
+	testingAlwaysAsyncName = "testing-always"
 )
 
 var statusReady = v1alpha1.IngressStatus{
@@ -92,18 +95,18 @@ var statusUnknown = v1alpha1.IngressStatus{
 	},
 }
 
-var ingWithAsyncAnnotation = ingress(defaultNamespace, "test-ingress", statusReady,
+var ingWithAsyncAnnotation = ingress(defaultNamespace, testingName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
 	}))
-var ingAlwaysAsync = ingress(defaultNamespace, "test-ingress-always", statusReady,
+var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
 		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
 	}),
 )
-var createdIng = ingress(defaultNamespace, "test-ingress-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
-var createdIngWithAsyncAlways = ingress(defaultNamespace, "test-ingress-always-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
+var createdIng = ingress(defaultNamespace, testingName+"-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
+var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName+"-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
@@ -117,22 +120,24 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name: "create new ingress with async annotation",
-			Key:  "default/test-ingress",
+			Key:  "default/testing",
 			Objects: []runtime.Object{
 				ingWithAsyncAnnotation,
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
+				service(defaultNamespace, testingName),
 			},
 		},
 		{
 			Name: "create new ingress with async annotation and always frequency type",
-			Key:  "default/test-ingress-always",
+			Key:  "default/testing-always",
 			Objects: []runtime.Object{
 				ingAlwaysAsync,
 			},
 			WantCreates: []runtime.Object{
 				createdIngWithAsyncAlways,
+				service(defaultNamespace, testingAlwaysAsyncName),
 			},
 		},
 	}
@@ -141,6 +146,8 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			netclient:     netclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
+			serviceLister: listers.GetK8sServiceLister(),
+			kubeclient:    kubeclient.Get(ctx),
 		}
 		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), fakenetworkingclient.Get(ctx),
 			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, asyncIngressClassName, controller.Options{})
@@ -240,4 +247,27 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 		}
 		ing.Spec.Rules = theRules
 	}
+}
+
+func service(namespace, name string) *corev1.Service {
+	selector := make(map[string]string)
+	selector["app"] = producerServiceName
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + asyncSuffix,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         "ExternalName",
+			ExternalName: producerServiceName + ".knative-serving.svc.cluster.local",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
+				Protocol:   corev1.ProtocolTCP,
+				Port:       int32(networking.ServicePort(networking.ProtocolHTTP1)),
+				TargetPort: intstr.FromInt(80),
+			}},
+			Selector: selector,
+		},
+	}
+	return svc
 }
