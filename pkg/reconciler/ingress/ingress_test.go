@@ -266,7 +266,8 @@ func service(namespace, name string) *corev1.Service {
 				Port:       int32(networking.ServicePort(networking.ProtocolHTTP1)),
 				TargetPort: intstr.FromInt(80),
 			}},
-			Selector: selector,
+			Selector:        selector,
+			SessionAffinity: "None",
 		},
 	}
 	return svc
