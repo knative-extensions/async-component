@@ -212,7 +212,7 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 		splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 		splits = append(splits, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
-				ServiceName:      ingName + asyncSuffix, // TODO(beemarie): make this configurable
+				ServiceName:      ingName + asyncSuffix,
 				ServiceNamespace: ingNamespace,
 				ServicePort:      intstr.FromInt(80),
 			},
