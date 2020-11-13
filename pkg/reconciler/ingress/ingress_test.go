@@ -110,6 +110,8 @@ var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
+	changedService := service(defaultNamespace, testingName)
+	changedService.Spec.ExternalName = "changed"
 	table := TableTest{
 		{
 			Name: "skip ingress not matching class key",
@@ -126,7 +128,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
-				service(defaultNamespace, testingName, producerServiceName),
+				service(defaultNamespace, testingName),
 			},
 		},
 		{
@@ -134,13 +136,13 @@ func TestReconcile(t *testing.T) {
 			Key:  "default/testing",
 			Objects: []runtime.Object{
 				ingWithAsyncAnnotation,
-				service(defaultNamespace, testingName, "changed"),
+				changedService,
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
 			},
 			WantUpdates: []ktesting.UpdateActionImpl{{
-				Object: service(defaultNamespace, testingName, producerServiceName),
+				Object: service(defaultNamespace, testingName),
 			}},
 		},
 		{
@@ -151,7 +153,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantCreates: []runtime.Object{
 				createdIngWithAsyncAlways,
-				service(defaultNamespace, testingAlwaysAsyncName, producerServiceName),
+				service(defaultNamespace, testingAlwaysAsyncName),
 			},
 		},
 	}
@@ -263,9 +265,9 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 	}
 }
 
-func service(namespace, name string, appSelector string) *corev1.Service {
+func service(namespace, name string) *corev1.Service {
 	selector := make(map[string]string)
-	selector["app"] = appSelector
+	selector["app"] = producerServiceName
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name + asyncSuffix,
