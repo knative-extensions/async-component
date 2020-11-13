@@ -27,7 +27,7 @@ type Reconciler struct {
 }
 
 const (
-	asyncSuffix = "-async"
+	asyncSuffix                     = "-async"
 	preferHeaderField               = "Prefer"
 	preferAsyncValue                = "respond-async"
 	preferSyncValue                 = "respond-sync"
@@ -35,8 +35,6 @@ const (
 	asyncFrequencyType              = "always.async.knative.dev"
 	publicLBDomain                  = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain                 = "cluster-local-gateway.istio-system.svc.cluster.local"
-	producerService                 = "producer-service" // TODO(beemarie): Do we want this service name configurable?
-	defaultNamespace                = "default"          // TODO(beemarie): This likely shouldn't live in default namespace
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
