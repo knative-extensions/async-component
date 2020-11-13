@@ -96,7 +96,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 	splits = append(splits, v1alpha1.IngressBackendSplit{
 		IngressBackend: v1alpha1.IngressBackend{
-			ServiceName:      kmeta.ChildName(ingress.Name, asyncSuffix), // TODO(beemarie): make this configurable
+			ServiceName:      kmeta.ChildName(ingress.Name, asyncSuffix),
 			ServiceNamespace: original.Namespace,
 			ServicePort:      intstr.FromInt(80),
 		},
