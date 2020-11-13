@@ -187,8 +187,8 @@ func (r *Reconciler) reconcileService(ctx context.Context, desiredSvc *corev1.Se
 	} else if err != nil {
 		return fmt.Errorf("Failed to get async K8s Service: %w", err)
 	} else {
-		// // Don't modify the informers copy
 		if !equality.Semantic.DeepEqual(service.Spec, desiredSvc.Spec) {
+			// Don't modify the informers copy
 			template := service.DeepCopy()
 			template.Spec = desiredSvc.Spec
 			if _, err = r.kubeclient.CoreV1().Services(service.Namespace).Update(ctx, template, metav1.UpdateOptions{}); err != nil {
