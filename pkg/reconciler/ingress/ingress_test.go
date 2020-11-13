@@ -27,6 +27,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 
+	ktesting "k8s.io/client-go/testing"
 	ingressreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -125,8 +126,22 @@ func TestReconcile(t *testing.T) {
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
-				service(defaultNamespace, testingName),
+				service(defaultNamespace, testingName, producerServiceName),
 			},
+		},
+		{
+			Name: "test service update",
+			Key:  "default/testing",
+			Objects: []runtime.Object{
+				ingWithAsyncAnnotation,
+				service(defaultNamespace, testingName, "changed"),
+			},
+			WantCreates: []runtime.Object{
+				createdIng,
+			},
+			WantUpdates: []ktesting.UpdateActionImpl{{
+				Object: service(defaultNamespace, testingName, producerServiceName),
+			}},
 		},
 		{
 			Name: "create new ingress with async annotation and always frequency type",
@@ -136,7 +151,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantCreates: []runtime.Object{
 				createdIngWithAsyncAlways,
-				service(defaultNamespace, testingAlwaysAsyncName),
+				service(defaultNamespace, testingAlwaysAsyncName, producerServiceName),
 			},
 		},
 	}
@@ -248,9 +263,9 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 	}
 }
 
-func service(namespace, name string) *corev1.Service {
+func service(namespace, name string, appSelector string) *corev1.Service {
 	selector := make(map[string]string)
-	selector["app"] = producerServiceName
+	selector["app"] = appSelector
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name + asyncSuffix,
