@@ -23,10 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/net-contour/pkg/reconciler/contour/config"
-	netclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 
 	ingressreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
@@ -144,10 +143,10 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			netclient:     netclient.Get(ctx),
+			netclient:     fakenetworkingclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
 			serviceLister: listers.GetK8sServiceLister(),
-			kubeclient:    kubeclient.Get(ctx),
+			kubeclient:    fakekubeclient.Get(ctx),
 		}
 		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), fakenetworkingclient.Get(ctx),
 			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, asyncIngressClassName, controller.Options{})

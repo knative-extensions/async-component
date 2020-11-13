@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/reconciler"
 
