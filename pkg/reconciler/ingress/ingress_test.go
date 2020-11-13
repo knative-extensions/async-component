@@ -48,6 +48,10 @@ type testConfigStore struct {
 	config *config.Config
 }
 
+const (
+	defaultNamespace = "default"
+)
+
 var statusReady = v1alpha1.IngressStatus{
 	PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 		Ingress: []v1alpha1.LoadBalancerIngressStatus{
