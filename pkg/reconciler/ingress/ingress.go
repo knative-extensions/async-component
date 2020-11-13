@@ -180,22 +180,24 @@ func (r *Reconciler) reconcileService(ctx context.Context, desiredSvc *corev1.Se
 		logger.Infof("K8s public service %s does not exist; creating.", sn)
 		_, err := r.kubeclient.CoreV1().Services(desiredSvc.Namespace).Create(ctx, desiredSvc, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create async K8s Service: %w", err)
+			return fmt.Errorf("Failed to create async K8s Service: %w", err)
 		}
 		logger.Info("Created K8s service: ", sn)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to get async K8s Service: %w", err)
-	} else if !equality.Semantic.DeepEqual(service.Spec, desiredSvc.Spec) {
-		// Don't modify the informers copy
-		origin := service.DeepCopy()
-		origin.Spec = desiredSvc.Spec
-		if _, err = r.kubeclient.CoreV1().Services(service.Namespace).Update(ctx, desiredSvc, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update public K8s Service: %w", err)
+		return fmt.Errorf("Failed to get async K8s Service: %w", err)
+	} else {
+		// // Don't modify the informers copy
+		if !equality.Semantic.DeepEqual(service.Spec, desiredSvc.Spec) {
+			template := service.DeepCopy()
+			template.Spec = desiredSvc.Spec
+			if _, err = r.kubeclient.CoreV1().Services(service.Namespace).Update(ctx, template, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("Failed to update public K8s Service: %w", err)
+			}
 		}
-		return nil
 	}
-	return err
+	logger.Debug("Finished reconciling public K8s service: ", sn)
+	return nil
 }
 
 // MakeK8sService constructs a K8s service, that is used to route service to the producer service
@@ -217,7 +219,8 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 				Port:       int32(networking.ServicePort(networking.ProtocolHTTP1)),
 				TargetPort: intstr.FromInt(80),
 			}},
-			Selector: selector,
+			Selector:        selector,
+			SessionAffinity: "None",
 		},
 	}
 }
