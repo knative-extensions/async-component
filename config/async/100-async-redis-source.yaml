@@ -7,6 +7,6 @@ spec:
   stream: mystream
   sink:
     ref:
-      apiVersion: v1
+      apiVersion: serving.knative.dev/v1
       kind: Service
       name: async-consumer
