@@ -49,6 +49,9 @@ func consumeEvent(event cloudevents.Event) error {
 	// client for sending request
 	client := &http.Client{}
 	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, nil)
+	if err != nil {
+		return fmt.Errorf("unable to create new request %w", err)
+	}
 	req.Header = data.ReqHeader
 	if req.Header == nil {
 		req.Header = make(map[string][]string)
