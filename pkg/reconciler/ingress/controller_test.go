@@ -16,11 +16,12 @@ package ingress
 import (
 	"testing"
 
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	network "knative.dev/networking/pkg"
+
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/system"
 

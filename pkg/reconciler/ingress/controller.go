@@ -20,6 +20,8 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	netclient "knative.dev/networking/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -41,10 +43,13 @@ func NewController(
 	logger := logging.FromContext(ctx)
 
 	ingressInformer := ingressinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
 
 	r := &Reconciler{
 		ingressLister: ingressInformer.Lister(),
+		serviceLister: serviceInformer.Lister(),
 		netclient:     netclient.Get(ctx),
+		kubeclient:    kubeclient.Get(ctx),
 	}
 	impl := v1alpha1ingress.NewImpl(ctx, r, asyncIngressClassName)
 

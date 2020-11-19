@@ -23,10 +23,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/net-contour/pkg/reconciler/contour/config"
-	netclient "knative.dev/networking/pkg/client/injection/client"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 
+	ktesting "k8s.io/client-go/testing"
 	ingressreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -47,6 +48,12 @@ import (
 type testConfigStore struct {
 	config *config.Config
 }
+
+const (
+	defaultNamespace       = "default"
+	testingName            = "testing"
+	testingAlwaysAsyncName = "testing-always"
+)
 
 var statusReady = v1alpha1.IngressStatus{
 	PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -88,21 +95,23 @@ var statusUnknown = v1alpha1.IngressStatus{
 	},
 }
 
-var ingWithAsyncAnnotation = ingress(defaultNamespace, "test-ingress", statusReady,
+var ingWithAsyncAnnotation = ingress(defaultNamespace, testingName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
 	}))
-var ingAlwaysAsync = ingress(defaultNamespace, "test-ingress-always", statusReady,
+var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
 		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
 	}),
 )
-var createdIng = ingress(defaultNamespace, "test-ingress-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
-var createdIngWithAsyncAlways = ingress(defaultNamespace, "test-ingress-always-new", statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
+var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
+var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
+	changedService := service(defaultNamespace, testingName)
+	changedService.Spec.ExternalName = "changed"
 	table := TableTest{
 		{
 			Name: "skip ingress not matching class key",
@@ -113,30 +122,48 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			Name: "create new ingress with async annotation",
-			Key:  "default/test-ingress",
+			Key:  "default/testing",
 			Objects: []runtime.Object{
 				ingWithAsyncAnnotation,
 			},
 			WantCreates: []runtime.Object{
 				createdIng,
+				service(defaultNamespace, testingName),
 			},
 		},
 		{
+			Name: "test service update",
+			Key:  "default/testing",
+			Objects: []runtime.Object{
+				ingWithAsyncAnnotation,
+				changedService,
+			},
+			WantCreates: []runtime.Object{
+				createdIng,
+			},
+			WantUpdates: []ktesting.UpdateActionImpl{{
+				Object: service(defaultNamespace, testingName),
+			}},
+		},
+		{
 			Name: "create new ingress with async annotation and always frequency type",
-			Key:  "default/test-ingress-always",
+			Key:  "default/testing-always",
 			Objects: []runtime.Object{
 				ingAlwaysAsync,
 			},
 			WantCreates: []runtime.Object{
 				createdIngWithAsyncAlways,
+				service(defaultNamespace, testingAlwaysAsyncName),
 			},
 		},
 	}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			netclient:     netclient.Get(ctx),
+			netclient:     fakenetworkingclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
+			serviceLister: listers.GetK8sServiceLister(),
+			kubeclient:    fakekubeclient.Get(ctx),
 		}
 		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), fakenetworkingclient.Get(ctx),
 			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, asyncIngressClassName, controller.Options{})
@@ -188,11 +215,21 @@ func withAnnotations(ans map[string]string) ingressCreationOption {
 
 func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 	return func(ing *v1alpha1.Ingress) {
+		// Get ingress name depending on async property
+		var ingName string
+		var ingNamespace string
+		if isAlwaysAsync {
+			ingName = ingAlwaysAsync.Name
+			ingNamespace = ingAlwaysAsync.Namespace
+		} else {
+			ingName = ingWithAsyncAnnotation.Name
+			ingNamespace = ingWithAsyncAnnotation.Namespace
+		}
 		splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
 		splits = append(splits, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
-				ServiceName:      producerService, // TODO(beemarie): make this configurable
-				ServiceNamespace: defaultNamespace,
+				ServiceName:      ingName + asyncSuffix,
+				ServiceNamespace: ingNamespace,
 				ServicePort:      intstr.FromInt(80),
 			},
 			Percent: int(100),
@@ -226,4 +263,28 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 		}
 		ing.Spec.Rules = theRules
 	}
+}
+
+func service(namespace, name string) *corev1.Service {
+	selector := make(map[string]string)
+	selector["app"] = producerServiceName
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name + asyncSuffix,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         "ExternalName",
+			ExternalName: producerServiceName + ".knative-serving.svc.cluster.local",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
+				Protocol:   corev1.ProtocolTCP,
+				Port:       int32(networking.ServicePort(networking.ProtocolHTTP1)),
+				TargetPort: intstr.FromInt(80),
+			}},
+			Selector:        selector,
+			SessionAffinity: "None",
+		},
+	}
+	return svc
 }
