@@ -27,7 +27,7 @@ import (
 var (
 	eventSource string
 	eventType   string
-	data        request
+	data        requestData
 )
 
 func TestConsumeEvent(t *testing.T) {

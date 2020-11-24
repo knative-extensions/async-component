@@ -23,12 +23,12 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
-type request struct {
-	ID        string              //`json:"id"`
-	ReqURL    string              //`json:"request"`
-	ReqBody   string              //`json:"body"`
-	ReqHeader map[string][]string //`json:"header"`
-	ReqMethod string              //`json:"string"`
+type requestData struct {
+	ID        string              `json:"id"`
+	ReqURL    string              `json:"url"`
+	ReqBody   string              `json:"body"`
+	ReqHeader map[string][]string `json:"header"`
+	ReqMethod string              `json:"method"`
 }
 
 const (
@@ -37,10 +37,9 @@ const (
 )
 
 func consumeEvent(event cloudevents.Event) error {
-	data := &request{}
+	data := &requestData{}
 	datastrings := make([]string, 0)
 	event.DataAs(&datastrings)
-
 	// unmarshal the string to request
 	if err := json.Unmarshal([]byte(datastrings[1]), data); err != nil {
 		return fmt.Errorf("error unmarshalling json: %w", err)
@@ -55,8 +54,8 @@ func consumeEvent(event cloudevents.Event) error {
 	req.Header = data.ReqHeader
 	if req.Header == nil {
 		req.Header = make(map[string][]string)
-		req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
 	}
+	req.Header.Set(preferHeaderField, preferSyncValue) // We do not want to make this request as async
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("problem calling url: %w", err)
