@@ -38,7 +38,7 @@ const (
 	preferSyncValue        = "respond-sync"
 	asyncModeAnnotationKey = "async.knative.dev/mode"
 	asyncAlwaysMode        = "always.async.knative.dev"
-	asyncSometimesMode     = "sometimes.async.knative.dev"
+	asyncConditionalMode   = "conditional.async.knative.dev"
 	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
 	producerServiceName    = "producer-service"
