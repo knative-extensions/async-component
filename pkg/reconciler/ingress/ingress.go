@@ -234,7 +234,7 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 
 func validateAsyncModeAnnotation(annotations map[string]string) error {
 	asyncMode := annotations[asyncModeAnnotationKey]
-	if asyncMode != "" && asyncMode != asyncAlwaysMode && asyncMode != asyncSometimesMode {
+	if asyncMode != "" && asyncMode != asyncAlwaysMode && asyncMode != asyncConditionalMode {
 		return fmt.Errorf("Invalid value for key %s: ", asyncModeAnnotationKey)
 	}
 	return nil

@@ -108,7 +108,7 @@ var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusRea
 var ingSometimesAsync = ingress(defaultNamespace, testingName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncModeAnnotationKey:               asyncSometimesMode,
+		asyncModeAnnotationKey:               asyncConditionalMode,
 	}),
 )
 var ingInvalidModeAnnotation = ingress(defaultNamespace, testingName, statusReady,
