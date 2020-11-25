@@ -31,16 +31,17 @@ type Reconciler struct {
 }
 
 const (
-	asyncSuffix                     = "-async"
-	newSuffix                       = "-new"
-	preferHeaderField               = "Prefer"
-	preferAsyncValue                = "respond-async"
-	preferSyncValue                 = "respond-sync"
-	asyncFrequencyTypeAnnotationKey = "async.knative.dev/frequency.type"
-	asyncFrequencyType              = "always.async.knative.dev"
-	publicLBDomain                  = "istio-ingressgateway.istio-system.svc.cluster.local"
-	privateLBDomain                 = "cluster-local-gateway.istio-system.svc.cluster.local"
-	producerServiceName             = "producer-service"
+	asyncSuffix            = "-async"
+	newSuffix              = "-new"
+	preferHeaderField      = "Prefer"
+	preferAsyncValue       = "respond-async"
+	preferSyncValue        = "respond-sync"
+	asyncModeAnnotationKey = "async.knative.dev/mode"
+	asyncAlwaysMode        = "always.async.knative.dev"
+	asyncSometimesMode     = "sometimes.async.knative.dev"
+	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
+	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
+	producerServiceName    = "producer-service"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -48,11 +49,16 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	logger := logging.FromContext(ctx)
 	// TODO(beemarie): allow this ingress class to be configurable
 	ingressClass := networkpkg.IstioIngressClassName
+	err := validateAsyncModeAnnotation(ing.Annotations)
+	if err != nil {
+		logger.Errorf("error validating ingress annotations: %w", err)
+		return err
+	}
 
 	markIngressReady(ing) //TODO(beemarie): this just sets the status of KIngress, but load balancer isn't needed.
 	desired := makeNewIngress(ing, ingressClass)
 	service := MakeK8sService(ing)
-	_, err := r.reconcileIngress(ctx, desired)
+	_, err = r.reconcileIngress(ctx, desired)
 	if err != nil {
 		logger.Errorf("error reconciling ingress: %s", desired.Name)
 		return err
@@ -107,7 +113,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	for _, rule := range original.Spec.Rules {
 		newRule := rule
 		newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-		if ingress.Annotations[asyncFrequencyTypeAnnotationKey] == asyncFrequencyType {
+		if ingress.Annotations[asyncModeAnnotationKey] == asyncAlwaysMode {
 			for _, path := range rule.HTTP.Paths {
 				defaultPath := path
 				defaultPath.Splits = splits
@@ -224,4 +230,12 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 			SessionAffinity: "None",
 		},
 	}
+}
+
+func validateAsyncModeAnnotation(annotations map[string]string) error {
+	asyncMode := annotations[asyncModeAnnotationKey]
+	if asyncMode != "" && asyncMode != asyncAlwaysMode && asyncMode != asyncSometimesMode {
+		return fmt.Errorf("Invalid value for key %s: ", asyncModeAnnotationKey)
+	}
+	return nil
 }
