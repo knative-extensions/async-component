@@ -102,7 +102,7 @@ var ingWithAsyncAnnotation = ingress(defaultNamespace, testingName, statusReady,
 var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
+		asyncFrequencyTypeAnnotationKey:      asyncFrequencyAlways,
 	}),
 )
 var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))

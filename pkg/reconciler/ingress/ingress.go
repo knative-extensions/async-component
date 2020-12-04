@@ -37,7 +37,7 @@ const (
 	preferAsyncValue                = "respond-async"
 	preferSyncValue                 = "respond-sync"
 	asyncFrequencyTypeAnnotationKey = "async.knative.dev/frequency.type"
-	asyncFrequencyType              = "always.async.knative.dev"
+	asyncFrequencyAlways            = "always.async.knative.dev"
 	publicLBDomain                  = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain                 = "cluster-local-gateway.istio-system.svc.cluster.local"
 	producerServiceName             = "producer-service"
@@ -107,7 +107,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	for _, rule := range original.Spec.Rules {
 		newRule := rule
 		newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-		if ingress.Annotations[asyncFrequencyTypeAnnotationKey] == asyncFrequencyType {
+		if ingress.Annotations[asyncFrequencyTypeAnnotationKey] == asyncFrequencyAlways {
 			for _, path := range rule.HTTP.Paths {
 				defaultPath := path
 				defaultPath.Splits = splits
