@@ -131,9 +131,9 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
 				Splits:  splits,
 				AppendHeaders: map[string]string{
-					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(), //rule.Hosts[len(rule.Hosts)-1], //ingress.Name + "." + ingress.Namespace + "." + network.GetClusterDomainName(), //rule.Hosts[0], //ingress.Name + ".default.169.60.165.166.xip.io",
+					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				},
-				RewriteHost: producerServiceName + ".knative-serving.svc.cluster.local",
+				RewriteHost: getClusterLocalDomain(producerServiceName, "knative-serving"),
 				// RewriteHost: "async-producer.knative-serving.169.60.165.166.xip.io",
 			})
 			newPaths = append(newPaths, newRule.HTTP.Paths...)
@@ -224,7 +224,7 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: producerServiceName + ".knative-serving.svc.cluster.local",
+			ExternalName: getClusterLocalDomain(producerServiceName, "knative-serving"),
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
 				Protocol:   corev1.ProtocolTCP,
@@ -235,4 +235,8 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 			SessionAffinity: "None",
 		},
 	}
+}
+
+func getClusterLocalDomain(serviceName string, namespace string) string {
+	return serviceName + "." + namespace + ".svc." + network.GetClusterDomainName()
 }
