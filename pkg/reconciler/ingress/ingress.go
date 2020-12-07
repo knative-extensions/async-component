@@ -116,7 +116,6 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(),
 				}
 				defaultPath.RewriteHost = producerServiceName + ".knative-serving.svc.cluster.local"
-				// defaultPath.RewriteHost = "async-producer.knative-serving.169.60.165.166.xip.io"
 				if path.Headers == nil {
 					path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
 				} else {
@@ -134,7 +133,6 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				},
 				RewriteHost: getClusterLocalDomain(producerServiceName, "knative-serving"),
-				// RewriteHost: "async-producer.knative-serving.169.60.165.166.xip.io",
 			})
 			newPaths = append(newPaths, newRule.HTTP.Paths...)
 			newRule.HTTP.Paths = newPaths
