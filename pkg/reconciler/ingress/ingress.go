@@ -19,6 +19,7 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	network "knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 )
 
@@ -40,7 +41,7 @@ const (
 	asyncFrequencyType              = "always.async.knative.dev"
 	publicLBDomain                  = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain                 = "cluster-local-gateway.istio-system.svc.cluster.local"
-	producerServiceName             = "producer-service"
+	producerServiceName             = "async-producer"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -111,6 +112,11 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 			for _, path := range rule.HTTP.Paths {
 				defaultPath := path
 				defaultPath.Splits = splits
+				defaultPath.AppendHeaders = map[string]string{
+					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(),
+				}
+				defaultPath.RewriteHost = producerServiceName + ".knative-serving.svc.cluster.local"
+				// defaultPath.RewriteHost = "async-producer.knative-serving.169.60.165.166.xip.io"
 				if path.Headers == nil {
 					path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
 				} else {
@@ -124,6 +130,11 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
 				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
 				Splits:  splits,
+				AppendHeaders: map[string]string{
+					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(), //rule.Hosts[len(rule.Hosts)-1], //ingress.Name + "." + ingress.Namespace + "." + network.GetClusterDomainName(), //rule.Hosts[0], //ingress.Name + ".default.169.60.165.166.xip.io",
+				},
+				RewriteHost: producerServiceName + ".knative-serving.svc.cluster.local",
+				// RewriteHost: "async-producer.knative-serving.169.60.165.166.xip.io",
 			})
 			newPaths = append(newPaths, newRule.HTTP.Paths...)
 			newRule.HTTP.Paths = newPaths

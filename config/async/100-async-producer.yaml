@@ -1,42 +1,18 @@
-apiVersion: v1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: producer-service
+  name: async-producer
   namespace: knative-serving
 spec:
-  selector:
-    app: producer-deployment
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: producer-deployment
-  namespace: knative-serving
-  labels:
-    app: producer-deployment
-spec:
-  replicas: 1
-  selector: 
-    matchLabels:
-      app: producer-deployment
   template:
-    metadata:
-      labels:
-        app: producer-deployment
     spec:
+      containerConcurrency: 1
       containers:
-      - name: app
-        image:  ko://knative.dev/async-component/cmd/producer
+      - image: ko://knative.dev/async-component/cmd/producer
         env:
-        - name: REDIS_ADDRESS
-          value: redis.redis.svc.cluster.local:6379
-        - name: REDIS_STREAM_NAME
-          value: mystream
-        - name: REQUEST_SIZE_LIMIT
-          value: "6000000"
-        ports:
-        - containerPort: 80
+          - name: REDIS_ADDRESS
+            value: redis.redis.svc.cluster.local:6379
+          - name: REDIS_STREAM_NAME
+            value: mystream
+          - name: REQUEST_SIZE_LIMIT
+            value: "6000000"
