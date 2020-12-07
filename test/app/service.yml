@@ -5,7 +5,7 @@ metadata:
   namespace: default
   annotations:
     networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
-    #async.knative.dev/frequency.type: always.async.knative.dev
+    #async.knative.dev/mode: always.async.knative.dev
 spec:
   template:
     metadata:
