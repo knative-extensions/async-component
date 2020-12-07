@@ -41,16 +41,17 @@ func TestConsumeEvent(t *testing.T) {
 	myEvent.SetID("123")
 
 	testserver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" && r.Method != "POST" {
-			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)
-		}
-		if r.Method == "POST" {
+		switch r.Method {
+		case http.MethodPost:
 			b, _ := ioutil.ReadAll(r.Body)
 			bodyString := string(b)
 			expectedBodyString := "{\"body\":\"test body\"}"
 			if bodyString != expectedBodyString {
 				t.Errorf("Expected body with POST request to match %s", expectedBodyString)
 			}
+		case http.MethodGet:
+		default:
+			t.Errorf("Expected POST or GET request, got %s", r.Method)
 		}
 	}))
 
