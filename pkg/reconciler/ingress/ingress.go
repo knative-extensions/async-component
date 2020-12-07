@@ -21,6 +21,7 @@ import (
 	"knative.dev/pkg/logging"
 	network "knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 )
 
 // Reconciler implements controller.Reconciler for Ingress resources.
@@ -115,7 +116,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				defaultPath.AppendHeaders = map[string]string{
 					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(),
 				}
-				defaultPath.RewriteHost = producerServiceName + ".knative-serving.svc.cluster.local"
+				defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, system.Namespace())
 				if path.Headers == nil {
 					path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
 				} else {
@@ -132,7 +133,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				AppendHeaders: map[string]string{
 					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				},
-				RewriteHost: getClusterLocalDomain(producerServiceName, "knative-serving"),
+				RewriteHost: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			})
 			newPaths = append(newPaths, newRule.HTTP.Paths...)
 			newRule.HTTP.Paths = newPaths
@@ -222,7 +223,7 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: getClusterLocalDomain(producerServiceName, "knative-serving"),
+			ExternalName: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
 				Protocol:   corev1.ProtocolTCP,
