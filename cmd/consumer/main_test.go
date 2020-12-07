@@ -88,7 +88,7 @@ func TestConsumeEvent(t *testing.T) {
 			data.ReqURL = test.reqURL
 			data.ReqMethod = test.method
 			if data.ReqMethod == "POST" {
-				data.ReqBody = "{\"body\":\"test body\"}"
+				data.ReqBody = `{"body":"test body"}`
 			}
 			// marshal data to json and then translate to string to encode as base64
 			out, err := json.Marshal(data)
