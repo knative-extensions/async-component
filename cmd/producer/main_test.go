@@ -29,7 +29,7 @@ type fakeRedis struct {
 
 func TestHandleRequest(t *testing.T) {
 	testserver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" && r.Method != "POST" {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
 			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)
 		}
 	}))
@@ -44,22 +44,22 @@ func TestHandleRequest(t *testing.T) {
 		returncode       int
 	}{{
 		name:       "async get request",
-		method:     "GET",
+		method:     http.MethodGet,
 		body:       "",
 		returncode: http.StatusAccepted,
 	}, {
 		name:       "async post request with too large payload",
-		method:     "POST",
+		method:     http.MethodPost,
 		body:       `{"body":"this is a larger body"}`,
 		returncode: http.StatusInternalServerError,
 	}, {
 		name:       "async post request with smaller than limit payload",
-		method:     "POST",
+		method:     http.MethodPost,
 		body:       `{"body":"this is a body"}`,
 		returncode: http.StatusAccepted,
 	}, {
 		name:       "test failure to write to Redis",
-		method:     "POST",
+		method:     http.MethodPost,
 		body:       "failure",
 		returncode: http.StatusInternalServerError,
 	},
@@ -72,7 +72,7 @@ func TestHandleRequest(t *testing.T) {
 				RequestSizeLimit: 25,
 			}
 			request := httptest.NewRequest(http.MethodGet, testserver.URL, nil)
-			if test.method == "POST" {
+			if test.method == http.MethodPost {
 				var body *strings.Reader
 				if test.body != "" {
 					body = strings.NewReader(test.body)

@@ -102,7 +102,19 @@ var ingWithAsyncAnnotation = ingress(defaultNamespace, testingName, statusReady,
 var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncFrequencyTypeAnnotationKey:      asyncFrequencyType,
+		AsyncModeAnnotationKey:               asyncAlwaysMode,
+	}),
+)
+var ingSometimesAsync = ingress(defaultNamespace, testingName, statusReady,
+	withAnnotations(map[string]string{
+		networking.IngressClassAnnotationKey: asyncIngressClassName,
+		AsyncModeAnnotationKey:               asyncConditionalMode,
+	}),
+)
+var ingInvalidModeAnnotation = ingress(defaultNamespace, testingName, statusReady,
+	withAnnotations(map[string]string{
+		networking.IngressClassAnnotationKey: asyncIngressClassName,
+		AsyncModeAnnotationKey:               "invalid.mode.annotation.value",
 	}),
 )
 var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
@@ -146,7 +158,18 @@ func TestReconcile(t *testing.T) {
 			}},
 		},
 		{
-			Name: "create new ingress with async annotation and always frequency type",
+			Name: "create new ingress with async annotation and sometimes mode value",
+			Key:  "default/testing",
+			Objects: []runtime.Object{
+				ingSometimesAsync,
+			},
+			WantCreates: []runtime.Object{
+				createdIng,
+				service(defaultNamespace, testingName),
+			},
+		},
+		{
+			Name: "create new ingress with async annotation and always mode value",
 			Key:  "default/testing-always",
 			Objects: []runtime.Object{
 				ingAlwaysAsync,
@@ -154,6 +177,17 @@ func TestReconcile(t *testing.T) {
 			WantCreates: []runtime.Object{
 				createdIngWithAsyncAlways,
 				service(defaultNamespace, testingAlwaysAsyncName),
+			},
+		},
+		{
+			Name: "create new ingress with async annotation and invalid mode value",
+			Key:  "default/testing",
+			Objects: []runtime.Object{
+				ingInvalidModeAnnotation,
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", "Invalid value for key async.knative.dev/mode: "),
 			},
 		},
 	}
