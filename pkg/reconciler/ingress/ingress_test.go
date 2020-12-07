@@ -102,19 +102,19 @@ var ingWithAsyncAnnotation = ingress(defaultNamespace, testingName, statusReady,
 var ingAlwaysAsync = ingress(defaultNamespace, testingAlwaysAsyncName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncModeAnnotationKey:               asyncAlwaysMode,
+		AsyncModeAnnotationKey:               asyncAlwaysMode,
 	}),
 )
 var ingSometimesAsync = ingress(defaultNamespace, testingName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncModeAnnotationKey:               asyncConditionalMode,
+		AsyncModeAnnotationKey:               asyncConditionalMode,
 	}),
 )
 var ingInvalidModeAnnotation = ingress(defaultNamespace, testingName, statusReady,
 	withAnnotations(map[string]string{
 		networking.IngressClassAnnotationKey: asyncIngressClassName,
-		asyncModeAnnotationKey:               "invalid.mode.annotation.value",
+		AsyncModeAnnotationKey:               "invalid.mode.annotation.value",
 	}),
 )
 var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
@@ -158,7 +158,7 @@ func TestReconcile(t *testing.T) {
 			}},
 		},
 		{
-			Name: "create new ingress with async annotation and sometimes mode",
+			Name: "create new ingress with async annotation and sometimes mode value",
 			Key:  "default/testing",
 			Objects: []runtime.Object{
 				ingSometimesAsync,
@@ -169,7 +169,7 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 		{
-			Name: "create new ingress with async annotation and always mode",
+			Name: "create new ingress with async annotation and always mode value",
 			Key:  "default/testing-always",
 			Objects: []runtime.Object{
 				ingAlwaysAsync,

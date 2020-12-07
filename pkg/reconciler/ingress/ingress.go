@@ -31,12 +31,12 @@ type Reconciler struct {
 }
 
 const (
+	AsyncModeAnnotationKey = "async.knative.dev/mode"
 	asyncSuffix            = "-async"
 	newSuffix              = "-new"
 	preferHeaderField      = "Prefer"
 	preferAsyncValue       = "respond-async"
 	preferSyncValue        = "respond-sync"
-	asyncModeAnnotationKey = "async.knative.dev/mode"
 	asyncAlwaysMode        = "always.async.knative.dev"
 	asyncConditionalMode   = "conditional.async.knative.dev"
 	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
@@ -113,7 +113,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	for _, rule := range original.Spec.Rules {
 		newRule := rule
 		newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-		if ingress.Annotations[asyncModeAnnotationKey] == asyncAlwaysMode {
+		if ingress.Annotations[AsyncModeAnnotationKey] == asyncAlwaysMode {
 			for _, path := range rule.HTTP.Paths {
 				defaultPath := path
 				defaultPath.Splits = splits
@@ -233,9 +233,9 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 }
 
 func validateAsyncModeAnnotation(annotations map[string]string) error {
-	asyncMode := annotations[asyncModeAnnotationKey]
+	asyncMode := annotations[AsyncModeAnnotationKey]
 	if asyncMode != "" && asyncMode != asyncAlwaysMode && asyncMode != asyncConditionalMode {
-		return fmt.Errorf("Invalid value for key %s: ", asyncModeAnnotationKey)
+		return fmt.Errorf("Invalid value for key %s: ", AsyncModeAnnotationKey)
 	}
 	return nil
 }
