@@ -16,6 +16,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,11 +44,20 @@ func TestConsumeEvent(t *testing.T) {
 		if r.Method != "GET" && r.Method != "POST" {
 			t.Errorf("Expected 'POST' OR 'GET' request, got '%s'", r.Method)
 		}
+		if r.Method == "POST" {
+			b, _ := ioutil.ReadAll(r.Body)
+			bodyString := string(b)
+			expectedBodyString := "{\"body\":\"test body\"}"
+			if bodyString != expectedBodyString {
+				t.Errorf("Expected body with POST request to match %s", expectedBodyString)
+			}
+		}
 	}))
 
 	tests := []struct {
 		name        string
 		method      string
+		body        string
 		reqURL      string
 		expectedErr string
 	}{{
@@ -77,7 +87,9 @@ func TestConsumeEvent(t *testing.T) {
 			data.ID = "123"
 			data.ReqURL = test.reqURL
 			data.ReqMethod = test.method
-
+			if data.ReqMethod == "POST" {
+				data.ReqBody = "{\"body\":\"test body\"}"
+			}
 			// marshal data to json and then translate to string to encode as base64
 			out, err := json.Marshal(data)
 			if err != nil {

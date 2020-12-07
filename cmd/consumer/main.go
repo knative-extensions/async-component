@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
@@ -47,7 +48,8 @@ func consumeEvent(event cloudevents.Event) error {
 
 	// client for sending request
 	client := &http.Client{}
-	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, nil)
+	bodyReader := strings.NewReader(data.ReqBody)
+	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, bodyReader)
 	if err != nil {
 		return fmt.Errorf("unable to create new request %w", err)
 	}
