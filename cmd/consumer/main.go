@@ -48,8 +48,7 @@ func consumeEvent(event cloudevents.Event) error {
 
 	// client for sending request
 	client := &http.Client{}
-	bodyReader := strings.NewReader(data.ReqBody)
-	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, bodyReader)
+	req, err := http.NewRequest(data.ReqMethod, data.ReqURL, strings.NewReader(data.ReqBody))
 	if err != nil {
 		return fmt.Errorf("unable to create new request %w", err)
 	}
