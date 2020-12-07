@@ -238,10 +238,14 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 		for _, rule := range ing.Spec.Rules {
 			newRule := rule
 			newPaths := make([]v1alpha1.HTTPIngressPath, 0)
+			appendHeaders := make(map[string]string)
+			appendHeaders["Async-Original-Host"] = getClusterLocalDomain(ingName, defaultNamespace)
 			if isAlwaysAsync {
 				for _, path := range rule.HTTP.Paths {
 					defaultPath := path
 					defaultPath.Splits = splits
+					defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, "knative-testing")
+					defaultPath.AppendHeaders = appendHeaders
 					if path.Headers == nil {
 						path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
 					} else {
@@ -253,8 +257,10 @@ func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
 				}
 			} else {
 				newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
-					Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
-					Splits:  splits,
+					Headers:       map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
+					Splits:        splits,
+					RewriteHost:   getClusterLocalDomain(producerServiceName, "knative-testing"),
+					AppendHeaders: appendHeaders,
 				})
 				newPaths = append(newPaths, newRule.HTTP.Paths...)
 				newRule.HTTP.Paths = newPaths
@@ -275,7 +281,7 @@ func service(namespace, name string) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: producerServiceName + ".knative-serving.svc.cluster.local",
+			ExternalName: getClusterLocalDomain(producerServiceName, "knative-testing"),
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
 				Protocol:   corev1.ProtocolTCP,
