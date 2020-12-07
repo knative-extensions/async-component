@@ -45,7 +45,7 @@ func TestConsumeEvent(t *testing.T) {
 		case http.MethodPost:
 			b, _ := ioutil.ReadAll(r.Body)
 			bodyString := string(b)
-			expectedBodyString := "{\"body\":\"test body\"}"
+			const expectedBodyString = `{"body":"test body"}`
 			if bodyString != expectedBodyString {
 				t.Errorf("Expected body with POST request to match %s", expectedBodyString)
 			}
