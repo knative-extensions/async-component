@@ -43,7 +43,7 @@ const (
 	asyncConditionalMode   = "conditional.async.knative.dev"
 	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
-	producerServiceName    = "producer-service"
+	producerServiceName    = "async-producer"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -99,7 +99,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, desired *v1alpha1.Ing
 	return ingress, err
 }
 
-// makeNewIngress creates an Ingress object with respond-async headers pointing to producer-service
+// makeNewIngress creates an Ingress object with respond-async headers pointing to async-producer
 func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.Ingress {
 	original := ingress.DeepCopy()
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
