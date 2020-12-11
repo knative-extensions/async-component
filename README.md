@@ -69,7 +69,7 @@ You can remove this setting by updating the ingress.class to null or by updating
    don't need the event-display sink. Only install redis with:
    `kubectl apply -f samples/redis`.
 
-2. There is a .yaml file in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
     ```
     kubectl apply -f config/async/100-async-redis-source.yaml
     ```
@@ -80,3 +80,27 @@ You can remove this setting by updating the ingress.class to null or by updating
     curl helloworld-sleep.default.11.112.113.14.xip.io
     curl helloworld-sleep.default.11.112.113.14.xip.io -H "Prefer: respond-async" -v
     ```
+
+1. For the synchronous case, you should see that the connection remains open to the client, and does not close until about 10 seconds have passed, which is the amount of time this application sleeps. For the asynchronous case, you should see a `202` response returned immediately. 
+
+## Update your Knative service to be always asynchronous.
+1. To set a service to always respond asynchronously, rather than conditionally requiring the header, you can add the following annotation in the `.yml` for the service.
+    ```
+    async.knative.dev/mode: always.async.knative.dev
+    ```
+
+1. You can find an example of this (commented) in the [`test/app/service.yml`](test/app/service.yml) file. Uncomment the annotation `async.knative.dev/mode: always.async.knative.dev`.
+
+1. Update the application by applying the `.yaml` file:
+    ```
+    kubectl apply -f test/app/service.yml
+    ```
+
+## Test your application
+1. Curl the application, this time without the `Prefer: respond-async` header. You should see a `202` response returned while some pods are spun up to handle your request.
+    ```
+    curl helloworld-sleep.default.11.112.113.14.xip.io -v
+    ```
+
+1. You can see the pods with `kubectl get pods.`
+
