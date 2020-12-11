@@ -57,7 +57,7 @@ Asynchronous component to enable async Knative service calls.
    don't need the event-display sink. Only install redis with:
    `kubectl apply -f samples/redis`.
 
-1. There is a .yaml file in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
     ```
     kubectl apply -f config/async/100-async-redis-source.yaml
     ```
@@ -77,7 +77,7 @@ Asynchronous component to enable async Knative service calls.
     async.knative.dev/mode: always.async.knative.dev
     ```
 
-1. You can find an example of this (commented) in the `/test/app/service.yml` file. Uncomment the annotation `async.knative.dev/mode: always.async.knative.dev`.
+1. You can find an example of this (commented) in the [`test/app/service.yml`](test/app/service.yml) file. Uncomment the annotation `async.knative.dev/mode: always.async.knative.dev`.
 
 1. Update the application by applying the `.yaml` file:
     ```
@@ -85,7 +85,7 @@ Asynchronous component to enable async Knative service calls.
     ```
 
 ## Test your application
-1. Curl the application, this time without the `Prefer` header. You should see a `202` response returned while some pods are spun up to handle your request.
+1. Curl the application, this time without the `Prefer: respond-async` header. You should see a `202` response returned while some pods are spun up to handle your request.
     ```
     curl helloworld-sleep.default.11.112.113.14.xip.io -v
     ```
