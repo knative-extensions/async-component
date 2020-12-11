@@ -13,12 +13,12 @@ This is an add-on component that, when installed, will enable your Knative servi
 
 ## Create your demo application
 
-1. This can be any simple hello world application. There is a sample application that sleeps for 10 seconds in the `test/app` folder. To deploy, use the `kubectl apply` command:
+1. This can be any simple hello world application. There is a sample application that sleeps for 10 seconds in the [`test/app`](test/app) folder. To deploy, use the `kubectl apply` command:
     ```
     kubectl apply -f test/app/service.yml
     ```
 
-1. Note that your application has an annotation setting the ingress.class as asynchronous. This enables just this application to respond to the `Prefer: respond-async` header.
+1. Note that your application has an annotation setting the `ingress.class` as `async.ingress.networking.knative.dev`. This enables just this application to respond to the `Prefer: respond-async` header.
     ```
     networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
     ```
@@ -35,6 +35,20 @@ This is an add-on component that, when installed, will enable your Knative servi
     -n knative-serving \
     --type merge \
     -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
+    ```
+
+You can remove this setting by updating the ingress.class to null or by updating the ingress.class to the ingress.class you would like to use, for example `kourier`.
+    ```
+    kubectl patch configmap/config-network \
+    -n knative-serving --type merge \
+    -p '{"data":{"ingress.class":null}}'
+    ```
+
+    ```
+    kubectl patch configmap/config-network \
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
     ```
 
 ## Install the consumer, producer, and async controller components
