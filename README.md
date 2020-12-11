@@ -11,7 +11,7 @@ This is an add-on component that, when installed, will enable your Knative servi
 
 1. https://knative.dev/docs/install/any-kubernetes-cluster/
 
-## Create your Demo Application.
+## Create your demo application
 
 1. This can be any simple hello world application. There is a sample application that sleeps for 10 seconds in the `test/app` folder. To deploy, use the `kubectl apply` command:
     ```
@@ -37,7 +37,7 @@ This is an add-on component that, when installed, will enable your Knative servi
     -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
     ```
 
-## Install the Consumer, Producer, and Async Controller
+## Install the consumer, producer, and async controller components
 
 1. Apply the following config files:
     ```
@@ -46,7 +46,7 @@ This is an add-on component that, when installed, will enable your Knative servi
     ko apply -f config/ingress/controller.yaml
     ```
 
-## Install the Redis Source
+## Install the Redis source
 
 1. Follow the `Getting Started` Instructions for the
    [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
@@ -60,7 +60,7 @@ This is an add-on component that, when installed, will enable your Knative servi
     kubectl apply -f config/async/100-async-redis-source.yaml
     ```
 
-## Test your Application
+## Test your application
 1. Curl your application. Try both asynchronous and non asynchronous requests.
     ```
     curl helloworld-sleep.default.11.112.113.14.xip.io
