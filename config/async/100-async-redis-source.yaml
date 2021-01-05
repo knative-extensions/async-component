@@ -4,7 +4,7 @@ metadata:
   name: mystream
   namespace: knative-serving
 spec:
-  address: "redis.redis.svc.cluster.local:6379"
+  address: "rediss://redis.redis.svc.cluster.local:6379"
   stream: mystream
   sink:
     ref:
