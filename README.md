@@ -11,6 +11,30 @@ This is an add-on component that, when installed, will enable your Knative servi
 
 1. https://knative.dev/docs/install/any-kubernetes-cluster/
 
+
+## Install the consumer, producer, and async controller components
+
+1. Apply the following config files:
+    ```
+    ko apply -f config/async/100-async-consumer.yaml
+    ko apply -f config/async/100-async-producer.yaml
+    ko apply -f config/ingress/controller.yaml
+    ```
+
+## Install the Redis source
+
+1. Follow the `Getting Started` Instructions for the
+   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
+
+1. For the `Example` section, do not install the entire `samples` folder, as you
+   don't need the event-display sink. Only install redis with:
+   `kubectl apply -f samples/redis`.
+
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
+    ```
+    kubectl apply -f config/async/100-async-redis-source.yaml
+    ```
+
 ## Create your demo application
 
 1. This can be any simple hello world application. There is a sample application that sleeps for 10 seconds in the [`test/app`](test/app) folder. To deploy, use the `kubectl apply` command:
@@ -37,7 +61,7 @@ This is an add-on component that, when installed, will enable your Knative servi
     -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
     ```
 
-You can remove this setting by updating the ingress.class to null or by updating the ingress.class to the ingress.class you would like to use, for example `kourier`.
+    You can remove this setting by updating the ingress.class to null or by updating the ingress.class to the ingress.class you would like to use, for example `kourier`.
     ```
     kubectl patch configmap/config-network \
     -n knative-serving --type merge \
@@ -50,30 +74,7 @@ You can remove this setting by updating the ingress.class to null or by updating
     --type merge \
     -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
     ```
-
-## Install the consumer, producer, and async controller components
-
-1. Apply the following config files:
-    ```
-    ko apply -f config/async/100-async-consumer.yaml
-    ko apply -f config/async/100-async-producer.yaml
-    ko apply -f config/ingress/controller.yaml
-    ```
-
-## Install the Redis source
-
-1. Follow the `Getting Started` Instructions for the
-   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
-
-1. For the `Example` section, do not install the entire `samples` folder, as you
-   don't need the event-display sink. Only install redis with:
-   `kubectl apply -f samples/redis`.
-
-1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
-    ```
-    kubectl apply -f config/async/100-async-redis-source.yaml
-    ```
-
+    
 ## Test your application
 1. Curl your application. Try both asynchronous and non asynchronous requests.
     ```
