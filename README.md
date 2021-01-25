@@ -3,9 +3,13 @@
 >Warning: Experimental and still under development. Not meant for production deployment.
 >Note: This component is currently only functional with Istio as the networking layer.
 
-This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request.
+This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header for asynchronous functionality.
 
-![diagram](./README-images/diagram.png)
+## Architecture
+
+![diagram](./README-images/async-all-components.png)
+
+The ingress controller looks for ingresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will route asynchronous service calls appropriately. If the service was an always asynchronous service, then all requests are routed to the producer component. If it was a conditional asynchronous service, then only requests with the `Prefer: respond-async` header will be routed. The producer component writes the request information to the redis stream and returns a `202 Accepted` response to the user. The consumer component reads from that stream and synchronously makes the service call.
 
 ## Install Knative Serving & Eventing to your Cluster
 
