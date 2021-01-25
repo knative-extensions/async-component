@@ -4,8 +4,10 @@ metadata:
   name: mystream
   namespace: knative-serving
 spec:
-  address: "redis.redis.svc.cluster.local:6379"
+  address: "rediss://user:userpassword@asdf1234.databases.appdomain.cloud:30285"
+  # address: "rediss://redis.redis.svc.cluster.local:6379"
   stream: mystream
+  group: mygroup
   sink:
     ref:
       apiVersion: serving.knative.dev/v1

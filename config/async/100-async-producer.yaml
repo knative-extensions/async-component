@@ -33,10 +33,13 @@ spec:
         image:  ko://knative.dev/async-component/cmd/producer
         env:
         - name: REDIS_ADDRESS
-          value: redis.redis.svc.cluster.local:6379
+          value: rediss://user:userpassword@asdf1234.databases.appdomain.cloud:30285
         - name: REDIS_STREAM_NAME
           value: mystream
         - name: REQUEST_SIZE_LIMIT
           value: "6000000"
+        envFrom: # use secret instead of env
+        - configMapRef:
+            name: config-tls
         ports:
         - containerPort: 80
