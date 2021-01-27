@@ -95,7 +95,6 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	reqBodyString := string(b)
 	id := gouuidv6.NewFromTime(now()).String()
 	originalHost := r.Header.Get("Async-Original-Host")
-	fmt.Println("r.URL.String() ", r.URL.String())
 	reqData := requestData{
 		ID:        id,
 		ReqBody:   reqBodyString,
