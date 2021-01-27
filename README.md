@@ -3,13 +3,41 @@
 >Warning: Experimental and still under development. Not meant for production deployment.
 >Note: This component is currently only functional with Istio as the networking layer.
 
-This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request.
+This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header for asynchronous functionality.
 
-![diagram](./README-images/diagram.png)
+## Architecture
+
+![diagram](./README-images/async-all-components.png)
+
+The ingress controller looks for ingresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will route asynchronous service calls appropriately. If the service was an always asynchronous service, then all requests are routed to the producer component. If it was a conditional asynchronous service, then only requests with the `Prefer: respond-async` header will be routed. The producer component writes the request information to the redis stream and returns a `202 Accepted` response to the user. The consumer component reads from that stream and synchronously makes the service call.
 
 ## Install Knative Serving & Eventing to your Cluster
 
 1. https://knative.dev/docs/install/any-kubernetes-cluster/
+
+
+## Install the consumer, producer, and async controller components
+
+1. Apply the following config files:
+    ```
+    ko apply -f config/async/100-async-consumer.yaml
+    ko apply -f config/async/100-async-producer.yaml
+    ko apply -f config/ingress/controller.yaml
+    ```
+
+## Install the Redis source
+
+1. Follow the `Getting Started` Instructions for the
+   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
+
+1. For the `Example` section, do not install the entire `samples` folder, as you
+   don't need the event-display sink. Only install redis with:
+   `kubectl apply -f samples/redis`.
+
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
+    ```
+    kubectl apply -f config/async/100-async-redis-source.yaml
+    ```
 
 ## Create your demo application
 
@@ -37,7 +65,7 @@ This is an add-on component that, when installed, will enable your Knative servi
     -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
     ```
 
-You can remove this setting by updating the ingress.class to null or by updating the ingress.class to the ingress.class you would like to use, for example `kourier`.
+    You can remove this setting by updating the ingress.class to null or by updating the ingress.class to the ingress.class you would like to use, for example `kourier`.
     ```
     kubectl patch configmap/config-network \
     -n knative-serving --type merge \
@@ -50,30 +78,7 @@ You can remove this setting by updating the ingress.class to null or by updating
     --type merge \
     -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
     ```
-
-## Install the consumer, producer, and async controller components
-
-1. Apply the following config files:
-    ```
-    ko apply -f config/async/100-async-consumer.yaml
-    ko apply -f config/async/100-async-producer.yaml
-    ko apply -f config/ingress/controller.yaml
-    ```
-
-## Install the Redis source
-
-1. Follow the `Getting Started` Instructions for the
-   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
-
-1. For the `Example` section, do not install the entire `samples` folder, as you
-   don't need the event-display sink. Only install redis with:
-   `kubectl apply -f samples/redis`.
-
-1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
-    ```
-    kubectl apply -f config/async/100-async-redis-source.yaml
-    ```
-
+    
 ## Test your application
 1. Curl your application. Try both asynchronous and non asynchronous requests.
     ```
