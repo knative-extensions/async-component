@@ -120,7 +120,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				defaultPath := path
 				defaultPath.Splits = splits
 				defaultPath.AppendHeaders = map[string]string{
-					"Async-Original-Host": ingress.Name + "." + ingress.Namespace + ".svc." + network.GetClusterDomainName(),
+					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				}
 				defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, system.Namespace())
 				if path.Headers == nil {
