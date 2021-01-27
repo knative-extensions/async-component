@@ -44,6 +44,7 @@ const (
 	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
 	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
 	producerServiceName    = "async-producer"
+	asyncOriginalHost      = "Async-Original-Host"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -120,7 +121,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				defaultPath := path
 				defaultPath.Splits = splits
 				defaultPath.AppendHeaders = map[string]string{
-					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
+					asyncOriginalHost: getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				}
 				defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, system.Namespace())
 				if path.Headers == nil {
@@ -137,7 +138,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
 				Splits:  splits,
 				AppendHeaders: map[string]string{
-					"Async-Original-Host": getClusterLocalDomain(ingress.Name, ingress.Namespace),
+					asyncOriginalHost: getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				},
 				RewriteHost: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			})

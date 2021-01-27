@@ -53,6 +53,10 @@ const (
 	defaultNamespace       = "default"
 	testingName            = "testing"
 	testingAlwaysAsyncName = "testing-always"
+	knativeTesting         = "knative-testing"
+	exampleHost            = "example.com"
+	testHost               = "test.com"
+	serviceName            = "servicename"
 )
 
 var statusReady = v1alpha1.IngressStatus{
@@ -117,8 +121,9 @@ var ingInvalidModeAnnotation = ingress(defaultNamespace, testingName, statusRead
 		AsyncModeAnnotationKey:               "invalid.mode.annotation.value",
 	}),
 )
-var createdIng = ingress(defaultNamespace, testingName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(false))
-var createdIngWithAsyncAlways = ingress(defaultNamespace, testingAlwaysAsyncName+newSuffix, statusUnknown, withAnnotations(map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName}), withPreferHeaderPaths(true))
+
+var createdIng = expectedCreatedIng(defaultNamespace, testingName, statusUnknown, false)
+var createdIngWithAsyncAlways = expectedCreatedIng(defaultNamespace, testingAlwaysAsyncName, statusUnknown, true)
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
@@ -214,17 +219,17 @@ func ingress(namespace, name string, status v1alpha1.IngressStatus, opt ...ingre
 		},
 		Spec: netv1alpha1.IngressSpec{
 			Rules: []netv1alpha1.IngressRule{{
-				Hosts:      []string{"example.com"},
+				Hosts:      []string{exampleHost},
 				Visibility: netv1alpha1.IngressVisibilityExternalIP,
 				HTTP: &netv1alpha1.HTTPIngressRuleValue{
 					Paths: []netv1alpha1.HTTPIngressPath{{
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							Percent: 100,
 							AppendHeaders: map[string]string{
-								network.OriginalHostHeader: "test.com",
+								network.OriginalHostHeader: testHost,
 							},
 							IngressBackend: netv1alpha1.IngressBackend{
-								ServiceName:      "servicename",
+								ServiceName:      serviceName,
 								ServiceNamespace: namespace,
 								ServicePort:      intstr.FromInt(80),
 							},
@@ -247,61 +252,85 @@ func withAnnotations(ans map[string]string) ingressCreationOption {
 	}
 }
 
-func withPreferHeaderPaths(isAlwaysAsync bool) ingressCreationOption {
-	return func(ing *v1alpha1.Ingress) {
-		// Get ingress name depending on async property
-		var ingName string
-		var ingNamespace string
-		if isAlwaysAsync {
-			ingName = ingAlwaysAsync.Name
-			ingNamespace = ingAlwaysAsync.Namespace
-		} else {
-			ingName = ingWithAsyncAnnotation.Name
-			ingNamespace = ingWithAsyncAnnotation.Namespace
-		}
-		splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
-		splits = append(splits, v1alpha1.IngressBackendSplit{
-			IngressBackend: v1alpha1.IngressBackend{
-				ServiceName:      ingName + asyncSuffix,
-				ServiceNamespace: ingNamespace,
-				ServicePort:      intstr.FromInt(80),
+func expectedCreatedIng(namespace, name string, status v1alpha1.IngressStatus, isAlwaysAsync bool) *v1alpha1.Ingress {
+	thePaths := []netv1alpha1.HTTPIngressPath{}
+	if isAlwaysAsync {
+		thePaths = append([]netv1alpha1.HTTPIngressPath{{
+			Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}},
+			Splits: []netv1alpha1.IngressBackendSplit{
+				{
+					IngressBackend: v1alpha1.IngressBackend{
+						ServiceName:      serviceName,
+						ServiceNamespace: namespace,
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent:       int(100),
+					AppendHeaders: map[string]string{"K-Original-Host": testHost},
+				}},
+		},
+			{
+				RewriteHost: getClusterLocalDomain(producerServiceName, knativeTesting),
+				Splits: []netv1alpha1.IngressBackendSplit{
+					{
+						Percent: 100,
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: namespace,
+							ServiceName:      name + asyncSuffix,
+							ServicePort:      intstr.FromInt(80),
+						},
+					},
+				},
+				AppendHeaders: map[string]string{asyncOriginalHost: getClusterLocalDomain(name, defaultNamespace)},
 			},
-			Percent: int(100),
 		})
-		theRules := []v1alpha1.IngressRule{}
-		for _, rule := range ing.Spec.Rules {
-			newRule := rule
-			newPaths := make([]v1alpha1.HTTPIngressPath, 0)
-			appendHeaders := make(map[string]string)
-			appendHeaders["Async-Original-Host"] = getClusterLocalDomain(ingName, defaultNamespace)
-			if isAlwaysAsync {
-				for _, path := range rule.HTTP.Paths {
-					defaultPath := path
-					defaultPath.Splits = splits
-					defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, "knative-testing")
-					defaultPath.AppendHeaders = appendHeaders
-					if path.Headers == nil {
-						path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
-					} else {
-						path.Headers[preferHeaderField] = v1alpha1.HeaderMatch{Exact: preferSyncValue}
-					}
-					newPaths = append(newPaths, path, defaultPath)
-					newRule.HTTP.Paths = newPaths
-					theRules = append(theRules, newRule)
-				}
-			} else {
-				newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
-					Headers:       map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
-					Splits:        splits,
-					RewriteHost:   getClusterLocalDomain(producerServiceName, "knative-testing"),
-					AppendHeaders: appendHeaders,
-				})
-				newPaths = append(newPaths, newRule.HTTP.Paths...)
-				newRule.HTTP.Paths = newPaths
-				theRules = append(theRules, newRule)
-			}
-		}
-		ing.Spec.Rules = theRules
+	} else {
+		thePaths = append([]netv1alpha1.HTTPIngressPath{{
+			RewriteHost: getClusterLocalDomain(producerServiceName, knativeTesting),
+			Headers:     map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
+			Splits: []netv1alpha1.IngressBackendSplit{
+				{
+					IngressBackend: v1alpha1.IngressBackend{
+						ServiceName:      name + asyncSuffix,
+						ServiceNamespace: namespace,
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: int(100),
+				}},
+			AppendHeaders: map[string]string{
+				asyncOriginalHost: getClusterLocalDomain(name, defaultNamespace),
+			},
+		},
+			{Splits: []netv1alpha1.IngressBackendSplit{
+				{
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						network.OriginalHostHeader: testHost,
+					},
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: namespace,
+						ServiceName:      serviceName,
+						ServicePort:      intstr.FromInt(80),
+					},
+				},
+			}},
+		})
+	}
+	return &netv1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name + newSuffix,
+			Namespace:   namespace,
+			Annotations: map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName},
+		},
+		Spec: netv1alpha1.IngressSpec{
+			Rules: []netv1alpha1.IngressRule{{
+				Hosts:      []string{exampleHost},
+				Visibility: netv1alpha1.IngressVisibilityExternalIP,
+				HTTP: &netv1alpha1.HTTPIngressRuleValue{
+					Paths: thePaths,
+				},
+			}},
+		},
+		Status: status,
 	}
 }
 
@@ -315,7 +344,7 @@ func service(namespace, name string) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: getClusterLocalDomain(producerServiceName, "knative-testing"),
+			ExternalName: getClusterLocalDomain(producerServiceName, knativeTesting),
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
 				Protocol:   corev1.ProtocolTCP,
