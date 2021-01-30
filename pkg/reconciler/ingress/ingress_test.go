@@ -284,31 +284,29 @@ func expectedCreatedIng(namespace, name string, status v1alpha1.IngressStatus, i
 		thePaths = append([]netv1alpha1.HTTPIngressPath{{
 			RewriteHost: getClusterLocalDomain(producerServiceName, knativeTesting),
 			Headers:     map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
-			Splits: []netv1alpha1.IngressBackendSplit{
-				{
-					IngressBackend: v1alpha1.IngressBackend{
-						ServiceName:      name + asyncSuffix,
-						ServiceNamespace: namespace,
-						ServicePort:      intstr.FromInt(80),
-					},
-					Percent: int(100),
-				}},
+			Splits: []netv1alpha1.IngressBackendSplit{{
+				IngressBackend: v1alpha1.IngressBackend{
+					ServiceName:      name + asyncSuffix,
+					ServiceNamespace: namespace,
+					ServicePort:      intstr.FromInt(80),
+				},
+				Percent: int(100),
+			}},
 			AppendHeaders: map[string]string{
 				asyncOriginalHostHeader: getClusterLocalDomain(name, defaultNamespace),
 			},
 		},
-			{Splits: []netv1alpha1.IngressBackendSplit{
-				{
-					Percent: 100,
-					AppendHeaders: map[string]string{
-						network.OriginalHostHeader: testHost,
-					},
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: namespace,
-						ServiceName:      serviceName,
-						ServicePort:      intstr.FromInt(80),
-					},
+			{Splits: []netv1alpha1.IngressBackendSplit{{
+				Percent: 100,
+				AppendHeaders: map[string]string{
+					network.OriginalHostHeader: testHost,
 				},
+				IngressBackend: netv1alpha1.IngressBackend{
+					ServiceNamespace: namespace,
+					ServiceName:      serviceName,
+					ServicePort:      intstr.FromInt(80),
+				},
+			},
 			}},
 		})
 	}
