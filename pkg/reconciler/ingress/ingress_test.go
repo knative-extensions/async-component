@@ -276,8 +276,7 @@ func expectedCreatedIng(namespace, name string, status v1alpha1.IngressStatus, i
 						ServiceName:      name + asyncSuffix,
 						ServicePort:      intstr.FromInt(80),
 					},
-				},
-				},
+				}},
 				AppendHeaders: map[string]string{asyncOriginalHostHeader: getClusterLocalDomain(name, defaultNamespace)},
 			},
 		})
