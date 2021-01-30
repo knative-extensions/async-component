@@ -257,30 +257,28 @@ func expectedCreatedIng(namespace, name string, status v1alpha1.IngressStatus, i
 	if isAlwaysAsync {
 		thePaths = append([]netv1alpha1.HTTPIngressPath{{
 			Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}},
-			Splits: []netv1alpha1.IngressBackendSplit{
-				{
-					IngressBackend: v1alpha1.IngressBackend{
-						ServiceName:      serviceName,
-						ServiceNamespace: namespace,
-						ServicePort:      intstr.FromInt(80),
-					},
-					Percent:       int(100),
-					AppendHeaders: map[string]string{"K-Original-Host": testHost},
-				}},
+			Splits: []netv1alpha1.IngressBackendSplit{{
+				IngressBackend: v1alpha1.IngressBackend{
+					ServiceName:      serviceName,
+					ServiceNamespace: namespace,
+					ServicePort:      intstr.FromInt(80),
+				},
+				Percent:       int(100),
+				AppendHeaders: map[string]string{"K-Original-Host": testHost},
+			}},
 		},
 			{
 				RewriteHost: getClusterLocalDomain(producerServiceName, knativeTesting),
-				Splits: []netv1alpha1.IngressBackendSplit{
-					{
-						Percent: 100,
-						IngressBackend: netv1alpha1.IngressBackend{
-							ServiceNamespace: namespace,
-							ServiceName:      name + asyncSuffix,
-							ServicePort:      intstr.FromInt(80),
-						},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					Percent: 100,
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: namespace,
+						ServiceName:      name + asyncSuffix,
+						ServicePort:      intstr.FromInt(80),
 					},
 				},
-				AppendHeaders: map[string]string{asyncOriginalHost: getClusterLocalDomain(name, defaultNamespace)},
+				},
+				AppendHeaders: map[string]string{asyncOriginalHostHeader: getClusterLocalDomain(name, defaultNamespace)},
 			},
 		})
 	} else {
@@ -297,7 +295,7 @@ func expectedCreatedIng(namespace, name string, status v1alpha1.IngressStatus, i
 					Percent: int(100),
 				}},
 			AppendHeaders: map[string]string{
-				asyncOriginalHost: getClusterLocalDomain(name, defaultNamespace),
+				asyncOriginalHostHeader: getClusterLocalDomain(name, defaultNamespace),
 			},
 		},
 			{Splits: []netv1alpha1.IngressBackendSplit{

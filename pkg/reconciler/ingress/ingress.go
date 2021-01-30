@@ -33,18 +33,18 @@ type Reconciler struct {
 }
 
 const (
-	AsyncModeAnnotationKey = "async.knative.dev/mode"
-	asyncSuffix            = "-async"
-	newSuffix              = "-new"
-	preferHeaderField      = "Prefer"
-	preferAsyncValue       = "respond-async"
-	preferSyncValue        = "respond-sync"
-	asyncAlwaysMode        = "always.async.knative.dev"
-	asyncConditionalMode   = "conditional.async.knative.dev"
-	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
-	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
-	producerServiceName    = "async-producer"
-	asyncOriginalHost      = "Async-Original-Host"
+	AsyncModeAnnotationKey  = "async.knative.dev/mode"
+	asyncSuffix             = "-async"
+	newSuffix               = "-new"
+	preferHeaderField       = "Prefer"
+	preferAsyncValue        = "respond-async"
+	preferSyncValue         = "respond-sync"
+	asyncAlwaysMode         = "always.async.knative.dev"
+	asyncConditionalMode    = "conditional.async.knative.dev"
+	publicLBDomain          = "istio-ingressgateway.istio-system.svc.cluster.local"
+	privateLBDomain         = "cluster-local-gateway.istio-system.svc.cluster.local"
+	producerServiceName     = "async-producer"
+	asyncOriginalHostHeader = "Async-Original-Host"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -121,7 +121,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				defaultPath := path
 				defaultPath.Splits = splits
 				defaultPath.AppendHeaders = map[string]string{
-					asyncOriginalHost: getClusterLocalDomain(ingress.Name, ingress.Namespace),
+					asyncOriginalHostHeader: getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				}
 				defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, system.Namespace())
 				if path.Headers == nil {
@@ -138,7 +138,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
 				Splits:  splits,
 				AppendHeaders: map[string]string{
-					asyncOriginalHost: getClusterLocalDomain(ingress.Name, ingress.Namespace),
+					asyncOriginalHostHeader: getClusterLocalDomain(ingress.Name, ingress.Namespace),
 				},
 				RewriteHost: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			})
