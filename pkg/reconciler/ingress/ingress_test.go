@@ -161,8 +161,7 @@ var conditionalAsyncPaths = []netv1alpha1.HTTPIngressPath{{
 	}},
 	AppendHeaders: map[string]string{
 		asyncOriginalHostHeader: getClusterLocalDomain(testingName, defaultNamespace),
-	},
-},
+	}},
 	{Splits: []netv1alpha1.IngressBackendSplit{{
 		Percent: 100,
 		AppendHeaders: map[string]string{
@@ -172,8 +171,7 @@ var conditionalAsyncPaths = []netv1alpha1.HTTPIngressPath{{
 			ServiceNamespace: defaultNamespace,
 			ServiceName:      serviceName,
 			ServicePort:      intstr.FromInt(80),
-		},
-	},
+		}},
 	}},
 }
 var createdIng = ingressWithPaths(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
@@ -183,72 +181,60 @@ func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
 	changedService := service(defaultNamespace, testingName)
 	changedService.Spec.ExternalName = "changed"
-	table := TableTest{
-		{
-			Name: "skip ingress not matching class key",
-			Objects: []runtime.Object{
-				ingress("testing", "testing", statusReady, withAnnotations(
-					map[string]string{networking.IngressClassAnnotationKey: "fake-class-annotation"})),
-			},
+	table := TableTest{{
+		Name: "skip ingress not matching class key",
+		Objects: []runtime.Object{
+			ingress("testing", "testing", statusReady, withAnnotations(
+				map[string]string{networking.IngressClassAnnotationKey: "fake-class-annotation"})),
+		}}, {
+		Name: "create new ingress with async annotation",
+		Key:  "default/testing",
+		Objects: []runtime.Object{
+			ingWithAsyncAnnotation,
 		},
-		{
-			Name: "create new ingress with async annotation",
-			Key:  "default/testing",
-			Objects: []runtime.Object{
-				ingWithAsyncAnnotation,
-			},
-			WantCreates: []runtime.Object{
-				createdIng,
-				service(defaultNamespace, testingName),
-			},
+		WantCreates: []runtime.Object{
+			createdIng,
+			service(defaultNamespace, testingName),
+		}}, {
+		Name: "test service update",
+		Key:  "default/testing",
+		Objects: []runtime.Object{
+			ingWithAsyncAnnotation,
+			changedService,
 		},
-		{
-			Name: "test service update",
-			Key:  "default/testing",
-			Objects: []runtime.Object{
-				ingWithAsyncAnnotation,
-				changedService,
-			},
-			WantCreates: []runtime.Object{
-				createdIng,
-			},
-			WantUpdates: []ktesting.UpdateActionImpl{{
-				Object: service(defaultNamespace, testingName),
-			}},
+		WantCreates: []runtime.Object{
+			createdIng,
 		},
-		{
-			Name: "create new ingress with async annotation and sometimes mode value",
-			Key:  "default/testing",
-			Objects: []runtime.Object{
-				ingSometimesAsync,
-			},
-			WantCreates: []runtime.Object{
-				createdIng,
-				service(defaultNamespace, testingName),
-			},
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: service(defaultNamespace, testingName),
+		}}}, {
+		Name: "create new ingress with async annotation and sometimes mode value",
+		Key:  "default/testing",
+		Objects: []runtime.Object{
+			ingSometimesAsync,
 		},
-		{
-			Name: "create new ingress with async annotation and always mode value",
-			Key:  "default/testing-always",
-			Objects: []runtime.Object{
-				ingAlwaysAsync,
-			},
-			WantCreates: []runtime.Object{
-				createdIngWithAsyncAlways,
-				service(defaultNamespace, testingAlwaysAsyncName),
-			},
+		WantCreates: []runtime.Object{
+			createdIng,
+			service(defaultNamespace, testingName),
+		}}, {
+		Name: "create new ingress with async annotation and always mode value",
+		Key:  "default/testing-always",
+		Objects: []runtime.Object{
+			ingAlwaysAsync,
 		},
-		{
-			Name: "create new ingress with async annotation and invalid mode value",
-			Key:  "default/testing",
-			Objects: []runtime.Object{
-				ingInvalidModeAnnotation,
-			},
-			WantErr: true,
-			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "InternalError", "Invalid value for key async.knative.dev/mode: "),
-			},
+		WantCreates: []runtime.Object{
+			createdIngWithAsyncAlways,
+			service(defaultNamespace, testingAlwaysAsyncName),
+		}}, {
+		Name: "create new ingress with async annotation and invalid mode value",
+		Key:  "default/testing",
+		Objects: []runtime.Object{
+			ingInvalidModeAnnotation,
 		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "Invalid value for key async.knative.dev/mode: "),
+		}},
 	}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
