@@ -18,7 +18,9 @@ package sharedmain
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -36,7 +38,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
+	cminformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/leaderelection"
@@ -73,12 +75,12 @@ func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
 	var loggingConfigMap *corev1.ConfigMap
 	// These timeout and retry interval are set by heuristics.
 	// e.g. istio sidecar needs a few seconds to configure the pod network.
+	var lastErr error
 	if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
-		var err error
-		loggingConfigMap, err = kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, logging.ConfigMapName(), metav1.GetOptions{})
-		return err == nil || apierrors.IsNotFound(err), nil
+		loggingConfigMap, lastErr = kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, logging.ConfigMapName(), metav1.GetOptions{})
+		return lastErr == nil || apierrors.IsNotFound(lastErr), nil
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("timed out waiting for the condition: %w", lastErr)
 	}
 	if loggingConfigMap == nil {
 		return logging.NewConfigFromMap(nil)
@@ -202,7 +204,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	eg.Go(profilingServer.ListenAndServe)
 
 	// Many of the webhooks rely on configuration, e.g. configurable defaults, feature flags.
-	// So make sure that we have synchonized our configuration state before launching the
+	// So make sure that we have synchronized our configuration state before launching the
 	// webhooks, so that things are properly initialized.
 	logger.Info("Starting configuration manager...")
 	if err := cmw.Start(ctx.Done()); err != nil {
@@ -241,7 +243,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	profilingServer.Shutdown(context.Background())
 	// Don't forward ErrServerClosed as that indicates we're already shutting down.
-	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+	if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }
@@ -288,12 +290,12 @@ func CheckK8sClientMinimumVersionOrDie(ctx context.Context, logger *zap.SugaredL
 
 // SetupConfigMapWatchOrDie establishes a watch of the configmaps in the system
 // namespace that are labeled to be watched or dies by calling log.Fatalw.
-func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *configmap.InformedWatcher {
+func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *cminformer.InformedWatcher {
 	kc := kubeclient.Get(ctx)
 	// Create ConfigMaps watcher with optional label-based filter.
 	var cmLabelReqs []labels.Requirement
 	if cmLabel := system.ResourceLabel(); cmLabel != "" {
-		req, err := configmap.FilterConfigByLabelExists(cmLabel)
+		req, err := cminformer.FilterConfigByLabelExists(cmLabel)
 		if err != nil {
 			logger.Fatalw("Failed to generate requirement for label "+cmLabel, zap.Error(err))
 		}
@@ -301,13 +303,13 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 		cmLabelReqs = append(cmLabelReqs, *req)
 	}
 	// TODO(mattmoor): This should itself take a context and be injection-based.
-	return configmap.NewInformedWatcher(kc, system.Namespace(), cmLabelReqs...)
+	return cminformer.NewInformedWatcher(kc, system.Namespace(), cmLabelReqs...)
 }
 
 // WatchLoggingConfigOrDie establishes a watch of the logging config or dies by
 // calling log.Fatalw. Note, if the config does not exist, it will be defaulted
 // and this method will not die.
-func WatchLoggingConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher, logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, component string) {
+func WatchLoggingConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, component string) {
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, logging.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
@@ -319,7 +321,7 @@ func WatchLoggingConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher
 // WatchObservabilityConfigOrDie establishes a watch of the observability config
 // or dies by calling log.Fatalw. Note, if the config does not exist, it will be
 // defaulted and this method will not die.
-func WatchObservabilityConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher, profilingHandler *profiling.Handler, logger *zap.SugaredLogger, component string) {
+func WatchObservabilityConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, profilingHandler *profiling.Handler, logger *zap.SugaredLogger, component string) {
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, metrics.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),
@@ -349,7 +351,7 @@ func SecretFetcher(ctx context.Context) metrics.SecretFetcher {
 // ControllersAndWebhooksFromCtors returns a list of the controllers and a list
 // of the webhooks created from the given constructors.
 func ControllersAndWebhooksFromCtors(ctx context.Context,
-	cmw *configmap.InformedWatcher,
+	cmw *cminformer.InformedWatcher,
 	ctors ...injection.ControllerConstructor) ([]*controller.Impl, []interface{}) {
 
 	// Check whether the context has been infused with a leader elector builder.

@@ -6,15 +6,16 @@ require (
 	github.com/bradleypeabody/gouuidv6 v0.0.0-20200224230637-90681a9a9294
 	github.com/cloudevents/sdk-go/v2 v2.2.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.7
+	github.com/googleapis/gnostic v0.4.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	k8s.io/api v0.18.8
-	k8s.io/apiextensions-apiserver v0.18.8 // indirect
-	k8s.io/apimachinery v0.18.8
+	k8s.io/api v0.19.7
+	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	knative.dev/hack v0.0.0-20201028205534-fe80f1c8af68
-	knative.dev/net-contour v0.18.1
-	knative.dev/networking v0.0.0-20201016015257-30b677481f47
-	knative.dev/pkg v0.0.0-20201016021557-c1a8664276b4
+	knative.dev/hack v0.0.0-20210203173706-8368e1f6eacf
+	knative.dev/net-contour v0.21.0
+	knative.dev/networking v0.0.0-20210216014426-94bfc013982b
+	knative.dev/pkg v0.0.0-20210216013737-584933f8280b
+	sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba // indirect
 )
 
 replace (
