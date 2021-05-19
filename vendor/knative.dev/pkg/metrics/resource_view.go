@@ -82,10 +82,16 @@ func cleanup() {
 	expiryCutoff := allMeters.clock.Now().Add(-1 * maxMeterExporterAge)
 	allMeters.lock.Lock()
 	defer allMeters.lock.Unlock()
+	resourceViews.lock.Lock()
+	defer resourceViews.lock.Unlock()
 	for key, meter := range allMeters.meters {
 		if key != "" && meter.t.Before(expiryCutoff) {
 			flushGivenExporter(meter.e)
+			// Make a copy of views to avoid data races
+			viewsCopy := copyViews(resourceViews.views)
+			meter.m.Unregister(viewsCopy...)
 			delete(allMeters.meters, key)
+			meter.m.Stop()
 		}
 	}
 }
@@ -139,7 +145,7 @@ func RegisterResourceView(views ...*view.View) error {
 	return nil
 }
 
-// UnregisterResourceView is similar to view.Unregiste(), except that it will
+// UnregisterResourceView is similar to view.Unregister(), except that it will
 // unregister the view across all Resources tracked byt he system, rather than
 // simply the default view.
 func UnregisterResourceView(views ...*view.View) {
@@ -315,21 +321,45 @@ func resourceToKey(r *resource.Resource) string {
 	if r == nil {
 		return ""
 	}
+
+	// If there are no labels, we have just the Type.
+	if len(r.Labels) == 0 {
+		return r.Type
+	}
+
 	var s strings.Builder
-	l := len(r.Type)
-	kvs := make([]string, 0, len(r.Labels))
-	for k, v := range r.Labels {
-		l += len(k) + len(v) + 2
+	writeKV := func(key, value string) { // This lambda doesn't force an allocation.
 		// We use byte values 1 and 2 to avoid colliding with valid resource labels
 		// and to make unpacking easy
-		kvs = append(kvs, fmt.Sprintf("\x01%s\x02%s", k, v))
+		s.WriteByte('\x01')
+		s.WriteString(key)
+		s.WriteByte('\x02')
+		s.WriteString(value)
+	}
+
+	// If there's only one label, we can skip building and sorting a slice of keys.
+	if len(r.Labels) == 1 {
+		for k, v := range r.Labels {
+			// We know this only executes once.
+			s.Grow(len(r.Type) + len(k) + len(v) + 2)
+			s.WriteString(r.Type)
+			writeKV(k, v)
+			return s.String()
+		}
+	}
+
+	l := len(r.Type)
+	keys := make([]string, 0, len(r.Labels))
+	for k, v := range r.Labels {
+		l += len(k) + len(v) + 2
+		keys = append(keys, k)
 	}
 	s.Grow(l)
-	s.WriteString(r.Type)
 
-	sort.Strings(kvs) // Go maps are unsorted, so sort by key to produce stable output.
-	for _, kv := range kvs {
-		s.WriteString(kv)
+	s.WriteString(r.Type)
+	sort.Strings(keys) // Go maps are unsorted, so sort by key to produce stable output.
+	for _, key := range keys {
+		writeKV(key, r.Labels[key])
 	}
 
 	return s.String()
