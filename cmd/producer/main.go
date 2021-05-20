@@ -75,7 +75,6 @@ func main() {
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM([]byte(env.Cert))
 	opt, err := redis.ParseURL(env.RedisAddress)
-	opt.Username = ""
 	opt.TLSConfig = &tls.Config{
 		RootCAs: roots,
 	}
