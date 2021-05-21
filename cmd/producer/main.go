@@ -70,7 +70,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
 	// set up redis client
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM([]byte(env.Cert))
@@ -127,6 +126,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error asynchronous writing request to storage ", err)
 		return
 	}
+	log.Println("request accepted")
 	w.WriteHeader(http.StatusAccepted)
 	return
 }
