@@ -96,6 +96,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		if err.Error() == "http: request body too large" {
+			log.Println("HTTP Request body too large ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			log.Println("Error writing to buffer: ", err)
