@@ -62,6 +62,11 @@ func TestHandleRequest(t *testing.T) {
 		method:     http.MethodPost,
 		body:       "failure",
 		returncode: http.StatusInternalServerError,
+	}, {
+		name:       "test large req body",
+		method:     http.MethodPost,
+		body:       "large req body",
+		returncode: http.StatusInternalServerError,
 	},
 	}
 	for _, test := range tests {
@@ -107,6 +112,9 @@ func setupRedis() {
 func (fr *fakeRedis) write(ctx context.Context, s envInfo, reqJSON []byte, id string) (err error) {
 	if strings.Contains(string(reqJSON), "failure") {
 		return errors.New("Failure writing")
+	}
+	if strings.Contains(string(reqJSON), "large req body") {
+		return errors.New("http: request body too large")
 	}
 	return // no need to actually write to redis stream for our test case.
 }
