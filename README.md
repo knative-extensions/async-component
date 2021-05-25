@@ -15,28 +15,46 @@ The ingress controller looks for ingresses with the `async.ingress.networking.kn
 
 1. https://knative.dev/docs/install/any-kubernetes-cluster/
 
-
-## Install the consumer, producer, and async controller components
+## Install the consumer and async controller components
 
 1. Apply the following config files:
     ```
     ko apply -f config/async/100-async-consumer.yaml
-    ko apply -f config/async/100-async-producer.yaml
     ko apply -f config/ingress/controller.yaml
     ```
 
-## Install the Redis source
+## Install the Redis source 
 
+### Using a cloud based Redis instance
+1. Follow the `Getting Started - Install` Instructions for the [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/main/source#install).
+
+1. Update the [producer .yaml file](config/async/100-async-producer.yaml) with the value for the `REDIS_ADDRESS`.
+
+1. Update the [config-tls.yaml file](config/async/config-tls.yaml) with the cert.pem data key from your cloud instance. This will be the same key used in `Getting Started - Install` instructions.
+
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. First, update the `address` value in this .yaml file. You can then apply it to your cluster.
+    ```
+    kubectl apply -f config/async/100-async-redis-source.yaml
+    ```
+
+### For a local installation of Redis
 1. Follow the `Getting Started` Instructions for the
-   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source)
-
-1. For the `Example` section, do not install the entire `samples` folder, as you
+   [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/master/source). For the `Example` section, do not install the entire `samples` folder, as you
    don't need the event-display sink. Only install redis with:
    `kubectl apply -f samples/redis`.
 
-1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. You can apply this file now.
+1. Update the [producer .yaml file](config/async/100-async-producer.yaml) with the value for the `REDIS_ADDRESS`. This should be `redis.redis.svc.cluster.local:6379`.
+
+1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. First update the address to `rediss://redis.redis.svc.cluster.local:6379`. You can then apply it to your cluster.
     ```
     kubectl apply -f config/async/100-async-redis-source.yaml
+    ```
+
+## Install the producer component.
+
+1. Apply the producer config file to install the component:
+    ```
+    ko apply -f config/async/100-async-producer.yaml
     ```
 
 ## Create your demo application

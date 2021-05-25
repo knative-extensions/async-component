@@ -15,6 +15,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -35,6 +37,7 @@ type envInfo struct {
 	StreamName       string `envconfig:"REDIS_STREAM_NAME"`
 	RedisAddress     string `envconfig:"REDIS_ADDRESS"`
 	RequestSizeLimit int64  `envconfig:"REQUEST_SIZE_LIMIT"`
+	Cert             string `envconfig:"CERT"`
 }
 
 type requestData struct {
@@ -53,6 +56,10 @@ type myRedis struct {
 	client redis.Cmdable
 }
 
+type TLSConfig struct {
+	TLSCertificate string
+}
+
 var env envInfo
 var rc redisInterface
 var now = time.Now
@@ -63,13 +70,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	// Set up redis client.
-	opts := &redis.UniversalOptions{
-		Addrs: []string{env.RedisAddress},
+	// set up redis client
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM([]byte(env.Cert))
+	opt, err := redis.ParseURL(env.RedisAddress)
+	opt.TLSConfig = &tls.Config{
+		RootCAs: roots,
 	}
+
 	rc = &myRedis{
-		client: redis.NewUniversalClient(opts),
+		client: redis.NewClient(opt),
 	}
 
 	// Start an HTTP Server,
@@ -85,6 +95,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		if err.Error() == "http: request body too large" {
+			log.Println("HTTP Request body too large ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			log.Println("Error writing to buffer: ", err)
@@ -108,12 +119,14 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		log.Println("Failed to marshal request: ", err)
 		return
 	}
+
 	// Write the request information to the storage.
 	if err = rc.write(r.Context(), env, reqJSON, reqData.ID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("Error asynchronous writing request to storage ", err)
 		return
 	}
+	log.Println("request accepted")
 	w.WriteHeader(http.StatusAccepted)
 	return
 }
