@@ -100,6 +100,10 @@ type IngressSpec struct {
 	// +optional
 	Rules []IngressRule `json:"rules,omitempty"`
 
+	// HTTPOption is the option of HTTP. It has the following two values:
+	// `HTTPOptionEnabled`, `HTTPOptionRedirected`
+	HTTPOption HTTPOption `json:"httpOption,omitempty"`
+
 	// DeprecatedVisibility was used for the fallback when spec.rules.visibility
 	// isn't set.
 	//
@@ -108,6 +112,16 @@ type IngressSpec struct {
 	// +optional
 	DeprecatedVisibility IngressVisibility `json:"visibility,omitempty"`
 }
+
+type HTTPOption string
+
+const (
+	// The knative ingress will be able to serve HTTP connections.
+	HTTPOptionEnabled HTTPOption = "Enabled"
+	// The knative will return redirection HTTP status for the clients,
+	// asking the clients to redirect their requests to HTTPS.
+	HTTPOptionRedirected HTTPOption = "Redirected"
+)
 
 // IngressVisibility describes whether the Ingress should be exposed to
 // public gateways or not.
@@ -195,11 +209,9 @@ type HTTPIngressRuleValue struct {
 // HTTPIngressPath associates a path regex with a backend. Incoming URLs matching
 // the path are forwarded to the backend.
 type HTTPIngressPath struct {
-	// Path is an extended POSIX regex as defined by IEEE Std 1003.1,
-	// (i.e this follows the egrep/unix syntax, not the perl syntax)
-	// matched against the path of an incoming request. Currently it can
-	// contain characters disallowed from the conventional "path"
-	// part of a URL as defined by RFC 3986. Paths must begin with
+	// Path represents a literal prefix to which this rule should apply.
+	// Currently it can contain characters disallowed from the conventional
+	// "path" part of a URL as defined by RFC 3986. Paths must begin with
 	// a '/'. If unspecified, the path defaults to a catch all sending
 	// traffic to the backend.
 	// +optional
@@ -221,8 +233,6 @@ type HTTPIngressPath struct {
 
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
-	//
-	// If Splits are specified, RewriteHost must not be.
 	Splits []IngressBackendSplit `json:"splits"`
 
 	// AppendHeaders allow specifying additional HTTP headers to add
@@ -232,11 +242,12 @@ type HTTPIngressPath struct {
 	// +optional
 	AppendHeaders map[string]string `json:"appendHeaders,omitempty"`
 
-	// Timeout for HTTP requests.
+	// DeprecatedTimeout is DEPRECATED.
+	// Timeout is not used anymore. See https://github.com/knative/networking/issues/91
 	//
 	// NOTE: This differs from K8s Ingress which doesn't allow setting timeouts.
 	// +optional
-	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	DeprecatedTimeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// DeprecatedRetries is DEPRECATED.
 	// Retry in Kingress is not used anymore. See https://github.com/knative/serving/issues/6549

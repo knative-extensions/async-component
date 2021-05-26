@@ -19,7 +19,9 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	network "knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 )
 
 // Reconciler implements controller.Reconciler for Ingress resources.
@@ -97,7 +99,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, desired *v1alpha1.Ing
 	return ingress, err
 }
 
-// makeNewIngress creates an Ingress object with respond-async headers pointing to producer-service
+// makeNewIngress creates an Ingress object with respond-async headers pointing to async-producer
 func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.Ingress {
 	original := ingress.DeepCopy()
 	splits := make([]v1alpha1.IngressBackendSplit, 0, 1)
@@ -117,6 +119,10 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 			for _, path := range rule.HTTP.Paths {
 				defaultPath := path
 				defaultPath.Splits = splits
+				defaultPath.AppendHeaders = map[string]string{
+					asyncOriginalHostHeader: getClusterLocalDomain(ingress.Name, ingress.Namespace),
+				}
+				defaultPath.RewriteHost = getClusterLocalDomain(producerServiceName, system.Namespace())
 				if path.Headers == nil {
 					path.Headers = map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferSyncValue}}
 				} else {
@@ -130,6 +136,10 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 			newPaths = append(newPaths, v1alpha1.HTTPIngressPath{
 				Headers: map[string]v1alpha1.HeaderMatch{preferHeaderField: {Exact: preferAsyncValue}},
 				Splits:  splits,
+				AppendHeaders: map[string]string{
+					asyncOriginalHostHeader: getClusterLocalDomain(ingress.Name, ingress.Namespace),
+				},
+				RewriteHost: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			})
 			newPaths = append(newPaths, newRule.HTTP.Paths...)
 			newRule.HTTP.Paths = newPaths
@@ -219,7 +229,7 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: producerServiceName + ".knative-serving.svc.cluster.local",
+			ExternalName: getClusterLocalDomain(producerServiceName, system.Namespace()),
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortName(networking.ProtocolHTTP1),
 				Protocol:   corev1.ProtocolTCP,
@@ -230,6 +240,10 @@ func MakeK8sService(ingress *v1alpha1.Ingress) *corev1.Service {
 			SessionAffinity: "None",
 		},
 	}
+}
+
+func getClusterLocalDomain(serviceName string, namespace string) string {
+	return serviceName + "." + namespace + ".svc." + network.GetClusterDomainName()
 }
 
 func validateAsyncModeAnnotation(annotations map[string]string) error {

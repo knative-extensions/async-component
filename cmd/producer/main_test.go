@@ -62,8 +62,7 @@ func TestHandleRequest(t *testing.T) {
 		method:     http.MethodPost,
 		body:       "failure",
 		returncode: http.StatusInternalServerError,
-	},
-	}
+	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			env = envInfo{
