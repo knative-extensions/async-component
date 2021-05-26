@@ -40,7 +40,7 @@ const (
 	asyncAlwaysMode        = "always.async.knative.dev"
 	asyncConditionalMode   = "conditional.async.knative.dev"
 	publicLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
-	privateLBDomain        = "cluster-local-gateway.istio-system.svc.cluster.local"
+	privateLBDomain        = "knative-local-gateway.istio-system.svc.cluster.local"
 	producerServiceName    = "producer-service"
 )
 
