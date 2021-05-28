@@ -30,7 +30,10 @@ When Knative Serving creates a service, one of the artifacts created is a KIngre
 
 1. Update the [producer .yaml file](config/async/100-async-producer.yaml) with the value for the `REDIS_ADDRESS`.
 
-1. Update the [config-tls.yaml file](config/async/config-tls.yaml) with the cert.pem data key from your cloud instance. This will be the same key used in `Getting Started - Install` instructions.
+1. Update the [tls-secret.yaml file](config/async/tls-secret.yaml) with the cert.pem data key from your cloud instance. This will be the same key used in `Getting Started - Install` instructions. You can then apply it to your cluster.
+    ```
+    kubectl apply -f config/async/tls-secret.yaml
+    ```
 
 1. There is a [.yaml file](config/async/100-async-redis-source.yaml) in the `async-component` describing the `RedisStreamSource`. It points to the `async-consumer` as the sink. First, update the `address` value in this .yaml file. You can then apply it to your cluster.
     ```

@@ -37,7 +37,7 @@ type envInfo struct {
 	StreamName       string `envconfig:"REDIS_STREAM_NAME"`
 	RedisAddress     string `envconfig:"REDIS_ADDRESS"`
 	RequestSizeLimit int64  `envconfig:"REQUEST_SIZE_LIMIT"`
-	Cert             string `envconfig:"CERT"`
+	TlsCert          string `envconfig:"TLS_CERT"`
 }
 
 type requestData struct {
@@ -70,9 +70,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
 	// set up redis client
 	roots := x509.NewCertPool()
-	roots.AppendCertsFromPEM([]byte(env.Cert))
+	roots.AppendCertsFromPEM([]byte(env.TlsCert))
 	opt, err := redis.ParseURL(env.RedisAddress)
 	opt.TLSConfig = &tls.Config{
 		RootCAs: roots,
