@@ -16,6 +16,6 @@ spec:
           value: mystream
         - name: REQUEST_SIZE_LIMIT
           value: "6000000"
-        envFrom: # TODO use secret instead of env
-        - configMapRef:
-            name: config-tls
+        envFrom:
+        - secretRef:
+            name: tls-secret-name
