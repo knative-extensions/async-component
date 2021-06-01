@@ -3,7 +3,7 @@
 >Warning: Experimental and still under development. Not meant for production deployment.
 >Note: This component is currently only functional with Istio as the networking layer.
 
-This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header for asynchronous functionality.
+This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header to be called asynchronously. 
 
 ## Architecture
 
@@ -11,7 +11,7 @@ This is an add-on component that, when installed, will enable your Knative servi
 
 When Knative Serving creates a service, one of the artifacts created is a KIngress for the service. The yaml for the KIngress will contain an annotation which is read by the networking controller (net-istio, net-countour, etc.). The ingress controller in our asynchronous component looks for KIngresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will create the required istio components, such as a virtual service, to route asynchronous service calls appropriately. If the service was an always asynchronous service, then all requests are routed to the producer component. If it was a conditional asynchronous service, then only requests with the `Prefer: respond-async` header will be routed. The producer component writes the request information to the redis stream and returns a `202 Accepted` response to the user. The consumer component reads from that stream and synchronously makes the service call.
 
-## Install Knative Serving & Eventing to your Cluster
+## Install Knative Serving & Eventing to your cluster
 
 1. https://knative.dev/docs/install/any-kubernetes-cluster/
 
