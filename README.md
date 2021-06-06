@@ -9,7 +9,16 @@ This is an add-on component that, when installed, will enable your Knative servi
 
 ![diagram](./README-images/async-all-components.png)
 
-When Knative Serving creates a service, one of the artifacts created is a KIngress for the service. The yaml for the KIngress will contain an annotation which is read by the networking controller (net-istio, net-countour, etc.). The ingress controller in our asynchronous component looks for KIngresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will create the required istio components, such as a virtual service, to route asynchronous service calls appropriately. If the service was an always asynchronous service, then all requests are routed to the producer component. If it was a conditional asynchronous service, then only requests with the `Prefer: respond-async` header will be routed. The producer component writes the request information to the redis stream and returns a `202 Accepted` response to the user. The consumer component reads from that stream and synchronously makes the service call.
+When Knative Serving creates a service, one of the artifacts created is a KIngress for the service. The yaml for the KIngress will contain an annotation which is read by the networking controller (net-istio, net-countour, etc.). The ingress controller in our asynchronous component looks for KIngresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will be picked up by the net component (net-istio in the above case) to create the required istio components, such as a virtual service, to route asynchronous service calls appropriately. If the service is an always asynchronous service, then all requests are routed to the producer component. 
+
+The following is the request flow (seen in blue in the architecture diagram above)
+1. A new request is made to the application url with the header `Prefer: respond-async`.
+2. The gateway has been modified such that requests with this header are routed to a K8s service in the user namespace.
+3.1. This K8s service routes the request to the producer component in the knative-serving namespace.
+3.2. The producer component returns a `202 Accepted` status to the user.
+4. The Producer is responsible for writing to the queue.
+5&6. The Redis Source component watches the queue and sends cloud events to our Consumer service.
+7. The consumer component reads the cloud event and synchronously makes the service call to the Knative Service.
 
 ## Install Knative Serving & Eventing to your cluster
 
