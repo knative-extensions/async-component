@@ -13,12 +13,12 @@ When Knative Serving creates a service, one of the artifacts created is a KIngre
 
 The following is the request flow (seen in blue in the architecture diagram above)
 1. A new request is made to the application url with the header `Prefer: respond-async`.
-2. The gateway has been modified such that requests with this header are routed to a K8s service in the user namespace.
-3. This K8s service routes the request to the producer component in the knative-serving namespace, while the producer component returns a `202 Accepted` status to the user.
-4. The Producer is responsible for writing to the queue.
-5. The Redis Source component watches the queue for new requests.
-6. The Redis Source component sends cloud events to our Consumer service
-7. The consumer component reads the cloud event and synchronously makes the service call to the Knative Service.
+1. The gateway has been modified such that requests with this header are routed to a K8s service in the user namespace.
+1. This K8s service routes the request to the producer component in the knative-serving namespace, while the producer component returns a `202 Accepted` status to the user.
+1. The Producer is responsible for writing to the queue.
+1. The Redis Source component watches the queue for new requests.
+1. The Redis Source component sends cloud events to our Consumer service
+1. The consumer component reads the cloud event and synchronously makes the service call to the Knative Service.
 
 ## Install Knative Serving & Eventing to your cluster
 
