@@ -3,13 +3,13 @@
 >Warning: Experimental and still under development. Not meant for production deployment.
 >Note: This component is currently only functional with Istio as the networking layer.
 
-This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header to be called asynchronously. 
+This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header to be called asynchronously.
 
 ## Architecture
 
 ![diagram](./README-images/async-all-components.png)
 
-When Knative Serving creates a service, one of the artifacts created is a KIngress for the service. The yaml for the KIngress will contain an annotation which is read by the networking controller (net-istio, net-countour, etc.). The ingress controller in our asynchronous component looks for KIngresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will be picked up by the net component (net-istio in the above case) to create the required istio components, such as a virtual service, to route asynchronous service calls appropriately. If the service is an always asynchronous service, then all requests are routed to the producer component. 
+When Knative Serving creates a service, one of the artifacts created is a KIngress for the service. The yaml for the KIngress will contain an annotation which is read by the networking controller (net-istio, net-countour, etc.). The ingress controller in our asynchronous component looks for KIngresses with the `async.ingress.networking.knative.dev` annotation. The ingress controller will then create a KIngress for Istio (annotated with `istio.ingress.networking.knative.dev`), which will be picked up by the net component (net-istio in the above case) to create the required istio components, such as a virtual service, to route asynchronous service calls appropriately. If the service is an always asynchronous service, then all requests are routed to the producer component.
 
 The following is the request flow (seen in blue in the architecture diagram above)
 1. A new request is made to the application url with the header `Prefer: respond-async`.
@@ -19,6 +19,10 @@ The following is the request flow (seen in blue in the architecture diagram abov
 1. The Redis Source component watches the queue for new requests.
 1. The Redis Source component sends cloud events to our Consumer service
 1. The consumer component reads the cloud event and synchronously makes the service call to the Knative Service.
+
+## Prerequisites
+- A kubernetes environment, recommended version and sizing [here](https://knative.dev/docs/install/knative-with-operators/#prerequisites)
+- Install [ko](https://github.com/google/ko)
 
 ## Install Knative Serving & Eventing to your cluster
 
@@ -32,7 +36,7 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ko apply -f config/ingress/controller.yaml
     ```
 
-## Install the Redis source 
+## Install the Redis source
 
 ### Using a cloud based Redis instance
 1. Follow the `Getting Started - Install` Instructions for the [Redis Source](https://github.com/knative-sandbox/eventing-redis/tree/main/source#install).
@@ -85,7 +89,9 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ```
     kubectl get kservice helloworld-sleep
     ```
-    
+
+    Note: If you don't see the service make sure you are using the default namespace
+
 1. (Optional) If you wanted every service created by knative to respond to the `Prefer: respond-async` header, you can configure Knative Serving to use the async ingress class for every service.
 
     ```
@@ -108,7 +114,7 @@ The following is the request flow (seen in blue in the architecture diagram abov
     --type merge \
     -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
     ```
-    
+
 ## Test your application
 1. Curl your application. Try both asynchronous and non asynchronous requests.
     ```
@@ -116,7 +122,7 @@ The following is the request flow (seen in blue in the architecture diagram abov
     curl helloworld-sleep.default.11.112.113.14.xip.io -H "Prefer: respond-async" -v
     ```
 
-1. For the synchronous case, you should see that the connection remains open to the client, and does not close until about 10 seconds have passed, which is the amount of time this application sleeps. For the asynchronous case, you should see a `202` response returned immediately. 
+1. For the synchronous case, you should see that the connection remains open to the client, and does not close until about 10 seconds have passed, which is the amount of time this application sleeps. For the asynchronous case, you should see a `202` response returned immediately.
 
 ## Update your Knative service to be always asynchronous.
 1. To set a service to always respond asynchronously, rather than conditionally requiring the header, you can add the following annotation in the `.yml` for the service.
@@ -138,4 +144,3 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ```
 
 1. You can see the pods with `kubectl get pods.`
-
