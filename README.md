@@ -22,7 +22,6 @@ The following is the request flow (seen in blue in the architecture diagram abov
 
 ## Prerequisites
 - A kubernetes environment, recommended version and sizing [here](https://knative.dev/docs/install/knative-with-operators/#prerequisites)
-- Installation of Istio before installing Knative Serving and Eventing
 - Install [ko](https://github.com/google/ko)
 
 ## Install Knative Serving & Eventing to your cluster
