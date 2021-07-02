@@ -1,0 +1,13 @@
+kind: Service
+metadata:
+  name: helloworld-sleep
+  namespace: default
+  annotations:
+    networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
+    #async.knative.dev/mode: always.async.knative.dev
+spec:
+  template:
+    spec:
+      containerConcurrency: 1
+      containers:
+        - image: ko://helloworld-sleep
