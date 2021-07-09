@@ -80,6 +80,11 @@ The following is the request flow (seen in blue in the architecture diagram abov
     kubectl apply -f test/app/service.yml
     ```
 
+    Alternatively you can deploy using a ko compiled image:
+    ```
+    ko apply -f test/app/koService.yaml  
+    ```
+
 1. Note that your application has an annotation setting the `ingress.class` as `async.ingress.networking.knative.dev`. This enables just this application to respond to the `Prefer: respond-async` header.
     ```
     networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
