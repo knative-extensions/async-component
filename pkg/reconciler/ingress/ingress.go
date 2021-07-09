@@ -50,7 +50,7 @@ const (
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) reconciler.Event {
 	logger := logging.FromContext(ctx)
-	// TODO(beemarie): allow this ingress class to be configurable
+	// TODO(bvennam): allow this ingress class to be configurable
 	ingressClass := networkpkg.IstioIngressClassName
 	err := validateAsyncModeAnnotation(ing.Annotations)
 	if err != nil {
@@ -58,7 +58,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 		return err
 	}
 
-	markIngressReady(ing) //TODO(beemarie): this just sets the status of KIngress, but load balancer isn't needed.
+	markIngressReady(ing) //TODO(bvennam): this just sets the status of KIngress, but load balancer isn't needed.
 	desired := makeNewIngress(ing, ingressClass)
 	service := MakeK8sService(ing)
 	_, err = r.reconcileIngress(ctx, desired)
@@ -165,7 +165,7 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 }
 
-// TODO(beemarie) track status of upstream ingress that is created "-new"
+// TODO(bvennam) track status of upstream ingress that is created "-new"
 func markIngressReady(ingress *v1alpha1.Ingress) {
 	privateDomain := domainForLocalGateway(ingress.Name, true)
 	publicDomain := domainForLocalGateway(ingress.Name, false)
@@ -181,7 +181,7 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 	ingress.Status.MarkNetworkConfigured()
 }
 
-// TODO(beemarie) we need to pull this from the upstream ingress that is create "-new"
+// TODO(bvennam) we need to pull this from the upstream ingress that is create "-new"
 func domainForLocalGateway(ingressName string, isPrivate bool) string {
 	if isPrivate {
 		return privateLBDomain
