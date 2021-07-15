@@ -65,9 +65,6 @@ const (
 	// customizations for networking features.
 	ConfigName = "config-network"
 
-	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
-	DeprecatedDefaultIngressClassKey = "clusteringress.class"
-
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
 	DefaultIngressClassKey = "ingress.class"
@@ -183,6 +180,9 @@ const (
 
 	// EnableMeshPodAddressabilityKey is the config for enabling pod addressability in mesh.
 	EnableMeshPodAddressabilityKey = "enable-mesh-pod-addressability"
+
+	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
+	DefaultExternalSchemeKey = "defaultExternalScheme"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -262,6 +262,10 @@ type Config struct {
 	// Consumers like Knative Serving can use this setting to adjust their behavior
 	// accordingly, i.e. to drop fallback solutions for non-pod-addressable systems.
 	EnableMeshPodAddressability bool
+
+	// DefaultExternalScheme defines the scheme used in external URLs if AutoTLS is
+	// not enabled. Defaults to "http".
+	DefaultExternalScheme string
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -287,7 +291,8 @@ func defaultConfig() *Config {
 		TagTemplate:                   DefaultTagTemplate,
 		AutoTLS:                       false,
 		HTTPProtocol:                  HTTPEnabled,
-		AutocreateClusterDomainClaims: true,
+		AutocreateClusterDomainClaims: false,
+		DefaultExternalScheme:         "http",
 	}
 }
 
@@ -301,7 +306,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(data,
-		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),
 		// New key takes precedence.
 		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
 		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
@@ -310,6 +314,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsInt(RolloutDurationKey, &nc.RolloutDurationSecs),
 		cm.AsBool(AutocreateClusterDomainClaimsKey, &nc.AutocreateClusterDomainClaims),
 		cm.AsBool(EnableMeshPodAddressabilityKey, &nc.EnableMeshPodAddressability),
+		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
 	); err != nil {
 		return nil, err
 	}
@@ -487,4 +492,14 @@ func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error
 		}
 	}
 	return 0, fmt.Errorf("no port for name %q found", portName)
+}
+
+// IsPotentialMeshErrorResponse returns whether the HTTP response is compatible
+// with having been caused by attempting direct connection when mesh was
+// enabled. For example if we get a HTTP 404 status code it's safe to assume
+// mesh is not enabled even if a probe was otherwise unsuccessful. This is
+// useful to avoid falling back to ClusterIP when we see errors which are
+// unrelated to mesh being enabled.
+func IsPotentialMeshErrorResponse(resp *http.Response) bool {
+	return resp.StatusCode == http.StatusServiceUnavailable
 }
