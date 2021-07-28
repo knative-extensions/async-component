@@ -30,6 +30,11 @@ The following is the request flow (seen in blue in the architecture diagram abov
 
 ## Install the consumer and async controller components
 
+### Note: Istio is the default ingress.
+To change this edit the prefix of `INGRESS_CLASS_NAME` in the ingress controller yaml.
+
+For example: `kourier.ingress.networking.knative.dev` - other ingresses may also be used such as ambassador, countour, etc.
+
 1. Apply the following config files:
     ```
     ko apply -f config/async/100-async-consumer.yaml

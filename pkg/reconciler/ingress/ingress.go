@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"strings"
 	"fmt"
 	"os"
 
@@ -47,15 +48,21 @@ const (
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
+	ingressSuffix           = ".ingress.networking.knative.dev"
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) reconciler.Event {
 	logger := logging.FromContext(ctx)
 	ingressClass := os.Getenv(ingressClassName)
-	if ingressClass == "" {
-		ingressClass = networkpkg.IstioIngressClassName
+
+	if strings.HasSuffix(ingressClass,ingressSuffix) {
+		logger.Debug("valid ingress suffix detected, using ingress class name " + ingressClass)
+	} else {
+		logger.Debug("invalid ingress detected: " + ingressClass + " -- setting ingress class to istio default")
+                ingressClass = networkpkg.IstioIngressClassName
 	}
+        
 	err := validateAsyncModeAnnotation(ing.Annotations)
 	if err != nil {
 		logger.Errorf("error validating ingress annotations: %w", err)

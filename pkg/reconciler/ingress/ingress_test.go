@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"testing"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -178,6 +179,7 @@ var conditionalAsyncPaths = []netv1alpha1.HTTPIngressPath{{
 }
 var createdIng = ingressWithPaths(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
 var createdIngWithAsyncAlways = ingressWithPaths(defaultNamespace, testingAlwaysAsyncName, statusUnknown, alwaysAsyncPaths)
+var createdIngWithKourier = ingressWithKourier(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
 
 func TestReconcile(t *testing.T) {
 	createdIng.Status.InitializeConditions()
@@ -251,6 +253,36 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
+func TestKourierIngress(t *testing.T) {
+	createdIng.Status.InitializeConditions()
+	changedService := service(defaultNamespace, testingName)
+	changedService.Spec.ExternalName = "changed"
+	table := TableTest{{
+		Name: "create new ingress with kourier",
+		Key:  "default/testing",
+		Objects: []runtime.Object{
+			ingSometimesAsync,
+		},
+		Ctx:  context.WithValue(context.Background(), "ingressClass", "kourier.ingress.networking.knative.dev"),
+		WantCreates: []runtime.Object{
+			createdIngWithKourier,
+			service(defaultNamespace, testingName),
+		}},
+	}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+			os.Setenv("INGRESS_CLASS_NAME", "kourier.ingress.networking.knative.dev")
+			r := &Reconciler{
+			netclient:     fakenetworkingclient.Get(ctx),
+			ingressLister: listers.GetIngressLister(),
+			serviceLister: listers.GetK8sServiceLister(),
+			kubeclient:    fakekubeclient.Get(ctx),
+		}
+		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), fakenetworkingclient.Get(ctx),
+			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, asyncIngressClassName, controller.Options{})
+	}))
+}
+
 type ingressCreationOption func(ing *v1alpha1.Ingress)
 
 func ingress(namespace, name string, status v1alpha1.IngressStatus, opt ...ingressCreationOption) *v1alpha1.Ingress {
@@ -312,6 +344,26 @@ func ingressWithPaths(namespace, name string, status v1alpha1.IngressStatus, pat
 		},
 		Status: status,
 	}
+}
+
+func ingressWithKourier(namespace, name string, status v1alpha1.IngressStatus, paths []netv1alpha1.HTTPIngressPath) *v1alpha1.Ingress {
+        return &netv1alpha1.Ingress{
+                ObjectMeta: metav1.ObjectMeta{
+                        Name:        name + newSuffix,
+                        Namespace:   namespace,
+                        Annotations: map[string]string{networking.IngressClassAnnotationKey: "kourier.ingress.networking.knative.dev"},
+                },
+                Spec: netv1alpha1.IngressSpec{
+                        Rules: []netv1alpha1.IngressRule{{
+                                Hosts:      []string{exampleHost},
+                                Visibility: netv1alpha1.IngressVisibilityExternalIP,
+                                HTTP: &netv1alpha1.HTTPIngressRuleValue{
+                                        Paths: paths,
+                                },
+                        }},
+                },
+                Status: status,
+        }
 }
 
 func service(namespace, name string) *corev1.Service {
