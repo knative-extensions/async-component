@@ -57,9 +57,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	ingressClass := os.Getenv(ingressClassName)
 
 	if strings.HasSuffix(ingressClass,ingressSuffix) {
-		logger.Debug("valid ingress suffix detected, using ingress class name " + ingressClass)
+		logger.Debugf("valid ingress suffix detected, using ingress class name %s", ingressClass)
 	} else {
-		logger.Debug("invalid ingress detected: " + ingressClass + " -- setting ingress class to istio default")
+		logger.Debugf("invalid ingress detected: %s -- setting ingress class to istio default", ingressClass)
                 ingressClass = networkpkg.IstioIngressClassName
 	}
         

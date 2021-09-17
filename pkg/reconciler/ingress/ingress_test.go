@@ -257,6 +257,7 @@ func TestKourierIngress(t *testing.T) {
 	createdIng.Status.InitializeConditions()
 	changedService := service(defaultNamespace, testingName)
 	changedService.Spec.ExternalName = "changed"
+	defaultIngressClassName := os.Getenv("INGRESS_CLASS_NAME")
 	table := TableTest{{
 		Name: "create new ingress with kourier",
 		Key:  "default/testing",
@@ -269,10 +270,13 @@ func TestKourierIngress(t *testing.T) {
 			service(defaultNamespace, testingName),
 		}},
 	}
+	// Restores the ingress class to the default after the kourier test
+	// TODO refactor to inject this value in context
+	os.Setenv("INGRESS_CLASS_NAME", defaultIngressClassName)
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-			os.Setenv("INGRESS_CLASS_NAME", "kourier.ingress.networking.knative.dev")
-			r := &Reconciler{
+		os.Setenv("INGRESS_CLASS_NAME", "kourier.ingress.networking.knative.dev")
+		r := &Reconciler{
 			netclient:     fakenetworkingclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
 			serviceLister: listers.GetK8sServiceLister(),
