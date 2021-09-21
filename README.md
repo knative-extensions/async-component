@@ -149,3 +149,5 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ```
 
 1. You can see the pods with `kubectl get pods.`
+
+Performance testing information can be found in [the performance test README](test/JMeter/README.md).
