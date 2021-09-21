@@ -171,8 +171,8 @@ Other ingresses may also be used such as ambassador, countour, etc.
 1. You can see the pods with `kubectl get pods.`
 
 Performance testing information can be found in [the performance test README](test/JMeter/README.md).
-## Uninstalling the component
 
+## Uninstalling the component
 1. Remove the demo application
     ```
     kubectl delete -f test/app/service.yml
