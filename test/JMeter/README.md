@@ -35,7 +35,7 @@ The number of threads and loop count can be edited in the top level thread group
 
 **To run via command line:**
 ```
-jmeter -n -t /path/to/async-component/test/JMeter/StressTest.jmx -l /path/to/results.jtl`
+jmeter -n -t /path/to/async-component/test/JMeter/PerformanceTest.jmx -l /path/to/results.jtl`
 ```
 The output file will contain the raw data.  Graphs and Summary can be viewed via JMeter GUI by simply opening the 
 resultant JTL file in either the Graph Results or Summary Report within the test plan thread group.    
