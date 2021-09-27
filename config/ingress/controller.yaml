@@ -64,6 +64,8 @@ spec:
           value: config-observability
         - name: METRICS_DOMAIN
           value: knative.dev/samples
+        - name: INGRESS_CLASS_NAME
+          value: istio.ingress.networking.knative.dev
 ---
 apiVersion: v1
 kind: Service
