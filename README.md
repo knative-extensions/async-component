@@ -172,6 +172,7 @@ Other ingresses may also be used such as ambassador, countour, etc.
 
 Performance testing information can be found in [the performance test README](test/JMeter/README.md).
 
+
 ## Uninstalling the component
 1. Remove the demo application
     ```
