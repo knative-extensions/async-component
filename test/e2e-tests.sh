@@ -27,12 +27,18 @@ run(){
 
   set -x
 
+  manage_dependencies
+
   # Smoke test
   eval smoke_test || fail_test
 
   smoke_test_clean_up
 
   success
+}
+
+manage_dependencies(){
+  git clone https://github.com/knative-sandbox/eventing-redis.git --branch release-0.26
 }
 
 smoke_test_clean_up(){
@@ -47,9 +53,7 @@ smoke_test_clean_up(){
   kubectl delete -f config/async/tls-secret.yaml
 
   # Switch to the redis dir, delete component, switch back to async dir
-  cd ./../eventing-redis
-  ko delete -f source/config
-  cd ./../async-component
+  ko delete -f ./eventing-redis/source/config
 
   # Remove the consumer and async controller components
   ko delete -f config/ingress/controller.yaml
@@ -66,24 +70,20 @@ smoke_test() {
   set -x
 
   # Install the consumer and async controller components
-  ko apply -f config/async/100-async-consumer.yaml
-  ko apply -f config/ingress/controller.yaml
-
-  cd ./../eventing-redis
+  ko apply -f config/async/100-async-consumer.yaml || fail_test
+  ko apply -f config/ingress/controller.yaml || fail_test
 
   # Install the Redis Source
-  ko apply -f source/config
+  ko apply -f ./eventing-redis/source/config || fail_test
 
-  cd ./../async-component
-
-  kubectl apply -f config/async/tls-secret.yaml
-  kubectl apply -f config/async/100-async-redis-source.yaml
+  kubectl apply -f config/async/tls-secret.yaml || fail_test
+  kubectl apply -f config/async/100-async-redis-source.yaml || fail_test
 
   # Install the producer component
-  ko apply -f config/async/100-async-producer.yaml
+  ko apply -f config/async/100-async-producer.yaml || fail_test
 
   # Create the demo application
-  kubectl apply -f test/app/service.yml
+  kubectl apply -f test/app/service.yml || fail_test
 
   # Wait for helloworld-sleep route to be set up
   sleep 20
