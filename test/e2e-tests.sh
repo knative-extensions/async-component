@@ -35,10 +35,6 @@ run(){
   success
 }
 
-set_up_dependencies(){
- #TODO test what is already in the test env
-}
-
 smoke_test_clean_up(){
   # Remove the demo application
   kubectl delete -f test/app/service.yml
