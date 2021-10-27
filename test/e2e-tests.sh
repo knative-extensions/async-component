@@ -41,6 +41,24 @@ manage_dependencies(){
   git clone https://github.com/knative-sandbox/eventing-redis.git --branch release-0.26
 }
 
+install_prerequisites(){
+  # Set up knative serving
+  kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-crds.yaml || fail_test
+  kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-core.yaml || fail_test
+
+  # Set up Networking layer istio - TODO make this swappable in the future
+  kubectl apply -l knative.dev/crd-install=true -f https://github.com/knative/net-istio/releases/download/v0.26.0/istio.yaml || fail_test
+  kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.26.0/net-istio.yaml || fail_test
+  kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.26.0/istio.yaml || fail_test
+
+  # Configure DNS
+  kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-default-domain.yaml || fail_test
+
+  # Set up knative eventing
+  kubectl apply -f https://github.com/knative/eventing/releases/download/v0.26.0/eventing-crds.yaml || fail_test
+  kubectl apply -f https://github.com/knative/eventing/releases/download/v0.26.0/eventing-core.yaml || fail_test
+}
+
 smoke_test_clean_up(){
   # Remove the demo application
   kubectl delete -f test/app/service.yml
