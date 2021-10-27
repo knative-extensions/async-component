@@ -48,10 +48,9 @@ install_prerequisites(){
   kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-crds.yaml || fail_test
   kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-core.yaml || fail_test
 
-  # Set up Networking layer istio - TODO make this swappable in the future
-  kubectl apply -l knative.dev/crd-install=true -f https://github.com/knative/net-istio/releases/download/v0.26.0/istio.yaml || fail_test
-  kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.26.0/net-istio.yaml || fail_test
-  kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.26.0/istio.yaml || fail_test
+  # Set up Networking layer (kourier is knative default now) TODO make this swappable in the future
+  kubectl apply -f https://github.com/knative/net-kourier/releases/download/v0.26.0/kourier.yaml || fail_test
+  kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}' || fail_test
 
   # Configure DNS
   kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-default-domain.yaml || fail_test
