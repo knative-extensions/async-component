@@ -93,7 +93,9 @@ smoke_test() {
   ko apply -f config/ingress/controller.yaml || fail_test
 
   # Install the Redis Source
-  ko apply -f ./eventing-redis/source/config || fail_test
+  cd ./eventing-redis
+  ko apply -f ./source/config || fail_test
+  cd ..
 
   kubectl apply -f config/async/tls-secret.yaml || fail_test
   kubectl apply -f config/async/100-async-redis-source.yaml || fail_test
