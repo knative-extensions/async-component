@@ -27,6 +27,8 @@ run(){
 
   set -x
 
+  install_prerequisites
+
   manage_dependencies
 
   # Smoke test
