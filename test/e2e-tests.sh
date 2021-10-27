@@ -95,6 +95,7 @@ smoke_test() {
   # Install the Redis Source
   cd ./eventing-redis
   ko apply -f ./source/config || fail_test
+  kubectl apply -f ./samples/redis || fail_test
   cd ..
 
   kubectl apply -f config/async/tls-secret.yaml || fail_test
