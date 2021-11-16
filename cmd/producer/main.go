@@ -73,14 +73,31 @@ func main() {
 
 	// set up redis client
 	roots := x509.NewCertPool()
-	roots.AppendCertsFromPEM([]byte(env.TlsCert))
-	opt, err := redis.ParseURL(env.RedisAddress)
-	opt.TLSConfig = &tls.Config{
-		RootCAs: roots,
-	}
 
-	rc = &myRedis{
-		client: redis.NewClient(opt),
+	// AppendCertsFromPEM reports whether a cert was parsed
+	certFound := roots.AppendCertsFromPEM([]byte(env.TlsCert))
+
+	if certFound {
+			log.Println("found a cert")
+		opt, err := redis.ParseURL(env.RedisAddress)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		opt.TLSConfig = &tls.Config{
+			RootCAs: roots,
+		}
+		rc = &myRedis{
+			client: redis.NewClient(opt),
+		}
+	} else {
+		log.Println("didnt find a cert")
+		rc = &myRedis{
+			client: redis.NewClient(&redis.Options{
+				Addr: env.RedisAddress,
+				Password: "",
+				DB: 0,
+			}),
+		}
 	}
 
 	// Start an HTTP Server,

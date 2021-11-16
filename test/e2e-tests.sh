@@ -16,8 +16,6 @@
 
 # This script runs the end-to-end tests for the async component.
 
-# TODO explain how to use this locally
-
 source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
 # Add local dir to have access to built in
 
@@ -43,6 +41,7 @@ manage_dependencies(){
   git clone https://github.com/knative-sandbox/eventing-redis.git --branch release-0.26
 }
 
+#TODO use latest images? cleanup prerequisites?
 install_prerequisites(){
   # Set up knative serving
   kubectl apply -f https://github.com/knative/serving/releases/download/v0.26.0/serving-crds.yaml || fail_test
@@ -79,8 +78,6 @@ smoke_test_clean_up(){
   ko delete -f config/async/100-async-consumer.yaml
 }
 
-# Currently expects config to be set up ahead of time
-# TODO verify we are setting up environment correctly with eventing-redis in the same location as async-component
 smoke_test() {
   header "Running smoke tests"
   # Assume at this point we have ko/kubectl/curl
@@ -133,9 +130,11 @@ smoke_test() {
 #TODO let this use alternate ingresses, also is there a way to get around this? do we even have sudo?
 ingress_fix(){
 
-  INGRESSGATEWAY=istio-ingressgateway
+  #INGRESSGATEWAY=istio-ingressgateway
+  #export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace istio-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
-  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace istio-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+  INGRESSGATEWAY=kourier
+  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace kourier-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
   export DOMAIN_NAME=`kubectl get route helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3`
 
