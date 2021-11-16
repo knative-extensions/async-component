@@ -71,6 +71,14 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	rc = setUpRedis()
+
+	// Start an HTTP Server,
+	http.HandleFunc("/", handleRequest)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func setUpRedis() redisInterface {
 	// set up redis client
 	roots := x509.NewCertPool()
 
@@ -78,7 +86,7 @@ func main() {
 	certFound := roots.AppendCertsFromPEM([]byte(env.TlsCert))
 
 	if certFound {
-			log.Println("found a cert")
+		log.Println("found a cert")
 		opt, err := redis.ParseURL(env.RedisAddress)
 		if err != nil {
 			log.Fatal(err.Error())
@@ -99,10 +107,7 @@ func main() {
 			}),
 		}
 	}
-
-	// Start an HTTP Server,
-	http.HandleFunc("/", handleRequest)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	return rc
 }
 
 // Handle requests coming to producer service by error checking and writing to storage.
