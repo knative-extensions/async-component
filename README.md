@@ -1,7 +1,7 @@
 # Knative Asynchronous Component
 
 >Warning: Experimental and still under development. Not meant for production deployment.
->Note: This component is currently only functional with Istio as the networking layer.
+>Note: This component has only been functionally tested with Kourier and Istio as the networking layer. Other networking layers are currently untested but will be added.
 
 This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header to be called asynchronously.
 
