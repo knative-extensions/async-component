@@ -11,7 +11,7 @@ spec:
       - image: ko://knative.dev/async-component/cmd/producer
         env:
         - name: REDIS_ADDRESS
-          value: "rediss://user:userpassword@asdf1234.databases.appdomain.cloud:30285"
+          value: "redis.redis.svc.cluster.local:6379"
         - name: REDIS_STREAM_NAME
           value: mystream
         - name: REQUEST_SIZE_LIMIT

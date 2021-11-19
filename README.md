@@ -1,7 +1,7 @@
 # Knative Asynchronous Component
 
 >Warning: Experimental and still under development. Not meant for production deployment.
->Note: This component is currently only functional with Istio as the networking layer.
+>Note: This component has only been functionally tested with Kourier and Istio as the networking layer. Other networking layers are currently untested but will be added.
 
 This is an add-on component that, when installed, will enable your Knative services to be called asynchronously. You can set a service to be always or conditionally asynchronous. Conditionally asynchronous services will respond when the `Prefer: respond-async` header is provided as a part of the request, while always asynchronous services do not need a special header to be called asynchronously.
 
@@ -30,31 +30,32 @@ The following is the request flow (seen in blue in the architecture diagram abov
 
 ## Install the consumer and async controller components
 
-### Note: Istio is the default ingress.
+1. Apply the following config files:
+    ```
+    ko apply -f config/async/100-async-consumer.yaml
+    ko apply -f config/ingress/controller.yaml
+    ```
+
+### Note: Kourier is the default ingress.
 To change this edit the prefix of `INGRESS_CLASS_NAME` in the config/ingress/controller.yaml file.
 
-For example change the default istio:
-```
- env:
- - name: INGRESS_CLASS_NAME
-   value: istio.ingress.networking.knative.dev
-```
-
-To kourier:
-
+For example change the default kourier:
 ```
  env:
  - name: INGRESS_CLASS_NAME
    value: kourier.ingress.networking.knative.dev
 ```
 
-Other ingresses may also be used such as ambassador, countour, etc.
 
-1. Apply the following config files:
-    ```
-    ko apply -f config/async/100-async-consumer.yaml
-    ko apply -f config/ingress/controller.yaml
-    ```
+To istio:
+
+```
+ env:
+ - name: INGRESS_CLASS_NAME
+   value: istio.ingress.networking.knative.dev
+```
+
+Other ingresses may also be used such as ambassador, countour, etc.
 
 ## Install the Redis source
 
