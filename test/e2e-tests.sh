@@ -19,6 +19,11 @@
 source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
 # Add local dir to have access to built in
 
+TEST_KOURIER=${TEST_KOURIER:-0}
+TEST_ISTIO=${TEST_ISTIO:-0}
+TEST_CONTOUR=${TEST_CONTOUR:-0}
+TEST_AMBASSADOR=${TEST_AMBASSADOR:-0}
+
 run(){
   # Create cluster
   initialize $@
@@ -26,37 +31,167 @@ run(){
   set -x
 
   install_prerequisites
-
   manage_dependencies
 
   # Smoke test
   eval smoke_test || fail_test
 
   smoke_test_clean_up
+  delete_prerequisites
 
   success
 }
 
-manage_dependencies(){
-  git clone https://github.com/knative-sandbox/eventing-redis.git --branch release-0.26
+function parse_flags() {
+  # This function will be called repeatedly by initialize() with one fewer
+  # argument each time and expects a return value of "the number of arguments to skip"
+  # so we can just check the first argument and return 1 (to have it redirected to the
+  # test container) or 0 (to have initialize() parse it normally).
+  case $1 in
+    --kourier)
+      TEST_KOURIER=1
+      return 1
+      ;;
+    --istio)
+      TEST_ISTIO=1
+      return 1
+      ;;
+    --ambassador)
+      TEST_AMBASSADOR=1
+      return 1
+      ;;
+    --contour)
+      TEST_CONTOUR=1
+      return 1
+      ;;
+  esac
+  return 0
 }
 
-#TODO always latest images? cleanup prerequisites?
+manage_dependencies(){
+  git clone https://github.com/knative-sandbox/eventing-redis.git --branch main
+}
+
 install_prerequisites(){
   # Set up knative serving
-  kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-crds.yaml || fail_test
-  kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-core.yaml || fail_test
+  kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-crds.yaml || fail_test
+  kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-core.yaml || fail_test
 
-  # Set up Networking layer (kourier is knative default now) TODO make this swappable in the future
-  kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.0.0/kourier.yaml || fail_test
-  kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}' || fail_test
+  # Set up networking layer
+  set_up_networking || fail_test
 
   # Configure DNS
-  kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-default-domain.yaml || fail_test
+  kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-default-domain.yaml || fail_test
 
   # Set up knative eventing
-  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.0.0/eventing-crds.yaml || fail_test
-  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.0.0/eventing-core.yaml || fail_test
+  kubectl apply -f https://github.com/knative/eventing/releases/latest/download/eventing-crds.yaml || fail_test
+  kubectl apply -f https://github.com/knative/eventing/releases/latest/download/eventing-core.yaml || fail_test
+}
+
+delete_prerequisites(){
+  kubectl delete -f https://storage.googleapis.com/knative-nightly/eventing/latest/eventing-crds.yaml
+  kubectl delete -f https://storage.googleapis.com/knative-nightly/eventing/latest/eventing-core.yaml
+  kubectl delete -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-default-domain.yaml
+  delete_networking
+  kubectl delete -f https://storage.googleapis.com/knative-nightly/serving/latest/serving-crds.yaml
+  kubectl delete -f https://storage.googleapis.com/knative-nightly/serving/latest/serving-core.yaml
+}
+
+set_up_networking(){
+  if [[ $TEST_KOURIER == 1 ]]; then
+    echo "Setting up Kourier as networking layer"
+    set_up_networking_kourier
+  elif [[ $TEST_ISTIO == 1 ]]; then
+    echo "Setting up Istio as networking layer"
+    set_up_networking_istio
+  elif [[ $TEST_CONTOUR == 1 ]]; then
+    echo "Setting up Contour as networking layer"
+    set_up_networking_contour
+  elif [[ $TEST_AMBASSADOR == 1 ]]; then
+    echo "Setting up Ambassador as networking layer"
+    set_up_networking_ambassador
+  else
+    echo "No networking flag found - setting up default networking layer Kourier"
+    set_up_networking_kourier
+  fi
+}
+
+delete_networking(){
+  if [[ $TEST_KOURIER == 1 ]]; then
+    echo "Deleting networking layer Kourier"
+    delete_networking_kourier
+  elif [[ $TEST_ISTIO == 1 ]]; then
+    echo "Deleting networking layer Istio"
+    delete_networking_istio
+  elif [[ $TEST_CONTOUR == 1 ]]; then
+    echo "Deleting networking layer Contour"
+    delete_networking_contour
+  elif [[ $TEST_AMBASSADOR == 1 ]]; then
+    echo "Deleting networking layer Ambassador"
+    delete_networking_ambassador
+  else
+    echo "No networking flag found - deleting networking layer Kourier"
+    delete_networking_kourier
+  fi
+}
+
+set_up_networking_kourier(){
+  kubectl apply -f https://github.com/knative/net-kourier/releases/latest/download/kourier.yaml || fail_test
+  kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}' || fail_test
+}
+
+delete_networking_kourier(){
+  kubectl delete -f https://github.com/knative/net-kourier/releases/latest/download/kourier.yaml
+}
+
+set_up_networking_ambassador(){
+  kubectl create namespace ambassador || fail_test
+  kubectl apply --namespace ambassador \
+    --filename https://getambassador.io/yaml/ambassador/ambassador-crds.yaml \
+    --filename https://getambassador.io/yaml/ambassador/ambassador-rbac.yaml \
+    --filename https://getambassador.io/yaml/ambassador/ambassador-service.yaml || fail_test
+
+  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || fail_test
+
+  kubectl set env --namespace ambassador  deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || fail_test
+
+  kubectl patch configmap/config-network \
+    --namespace knative-serving \
+    --type merge \
+    --patch '{"data":{"ingress-class":"ambassador.ingress.networking.knative.dev"}}' || fail_test
+}
+
+delete_networking_ambassador(){
+  kubectl delete --namespace default \
+   -f https://getambassador.io/yaml/ambassador/ambassador-crds.yaml \
+   -f https://getambassador.io/yaml/ambassador/ambassador-rbac.yaml \
+   -f https://getambassador.io/yaml/ambassador/ambassador-service.yaml
+  kubectl delete namespace ambassador
+}
+
+set_up_networking_contour(){
+  kubectl apply -f https://github.com/knative/net-contour/releases/latest/download/contour.yaml || fail_test
+  kubectl apply -f https://github.com/knative/net-contour/releases/latest/download/net-contour.yaml || fail_test
+  kubectl patch configmap/config-network \
+    --namespace knative-serving \
+    --type merge \
+    --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}' || fail_test
+}
+
+delete_networking_contour(){
+  kubectl delete -f https://github.com/knative/net-contour/releases/latest/download/net-contour.yaml
+  kubectl delete -f https://github.com/knative/net-contour/releases/latest/download/contour.yaml
+}
+
+set_up_networking_istio(){
+  kubectl apply -l knative.dev/crd-install=true -f https://github.com/knative/net-istio/releases/latest/download/istio.yaml
+  kubectl apply -f https://github.com/knative/net-istio/releases/latest/download/istio.yaml
+  kubectl apply -f https://github.com/knative/net-istio/releases/latest/download/net-istio.yaml
+}
+
+delete_networking_istio(){
+  kubectl delete -f https://github.com/knative/net-istio/releases/latest/download/net-istio.yaml
+  kubectl delete -f https://github.com/knative/net-istio/releases/latest/download/istio.yaml
 }
 
 smoke_test_clean_up(){
@@ -71,6 +206,7 @@ smoke_test_clean_up(){
   kubectl delete -f config/async/tls-secret.yaml
 
   # Switch to the redis dir, delete component, switch back to async dir
+  kubectl delete -f ./eventing-redis/samples/redis
   ko delete -f ./eventing-redis/source/config
 
   # Remove the consumer and async controller components
@@ -87,7 +223,7 @@ smoke_test() {
 
   # Install the consumer and async controller components
   ko apply -f config/async/100-async-consumer.yaml || fail_test
-  ko apply -f config/ingress/controller.yaml || fail_test
+  install_ingress_controller || fail_test
 
   # Install the Redis Source
   cd ./eventing-redis
@@ -107,7 +243,11 @@ smoke_test() {
   # Wait for helloworld-sleep route to be set up
   sleep 20
 
-  ingress_fix
+  set_gateway_ip
+  export DOMAIN_NAME=`kubectl get route helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3`
+
+  # Add the record of Gateway IP and domain name into file "/etc/hosts"
+  echo -e "$GATEWAY_IP\t$DOMAIN_NAME" | sudo tee -a /etc/hosts
 
   # Get the url for application
   helloworld_url=$(kubectl get kservice helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3)
@@ -127,20 +267,63 @@ smoke_test() {
   fi
 }
 
-#TODO let this use alternate ingresses, also is there a way to get around this? do we even have sudo?
-ingress_fix(){
+install_ingress_controller(){
+  if [[ $TEST_KOURIER == 1 ]]; then
+      echo "Setting up ingress controller for Kourier"
+      ko apply -f config/ingress/kourier.yaml
+    elif [[ $TEST_ISTIO == 1 ]]; then
+      echo "Setting up ingress controller for Istio"
+      ko apply -f config/ingress/istio.yaml
+    elif [[ $TEST_CONTOUR == 1 ]]; then
+      echo "Setting up ingress controller for Contour"
+      ko apply -f config/ingress/contour.yaml
+    elif [[ $TEST_AMBASSADOR == 1 ]]; then
+      echo "Setting up ingress controller for Ambassador"
+      ko apply -f config/ingress/ambassador.yaml
+    else
+      echo "Setting up ingress controller for custom local (default - Kourier)"
+      ko apply -f config/ingress/controller.yaml
+    fi
+}
 
-  #INGRESSGATEWAY=istio-ingressgateway
-  #export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace istio-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+set_gateway_ip(){
+  if [[ $TEST_KOURIER == 1 ]]; then
+    echo "Setting gateway ip for Kourier"
+    set_gateway_ip_kourier
+  elif [[ $TEST_ISTIO == 1 ]]; then
+    echo "Setting gateway ip for Istio"
+    set_gateway_ip_istio
+  elif [[ $TEST_CONTOUR == 1 ]]; then
+    echo "Setting gateway ip for Contour"
+    set_gateway_ip_contour
+  elif [[ $TEST_AMBASSADOR == 1 ]]; then
+    echo "Setting gateway ip for Ambassador"
+    set_gateway_ip_ambassador
+  else
+    echo "Setting gateway ip for default Kourier"
+    set_gateway_ip_kourier
+  fi
+}
 
+set_gateway_ip_kourier(){
   INGRESSGATEWAY=kourier
   export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace kourier-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
-
-  export DOMAIN_NAME=`kubectl get route helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3`
-
-  # Add the record of Gateway IP and domain name into file "/etc/hosts"
-  echo -e "$GATEWAY_IP\t$DOMAIN_NAME" | sudo tee -a /etc/hosts
-
 }
+
+set_gateway_ip_istio(){
+  INGRESSGATEWAY=istio-ingressgateway
+  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace istio-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+}
+
+set_gateway_ip_ambassador(){
+  INGRESSGATEWAY=ambassador
+  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace ambassador --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+}
+
+set_gateway_ip_contour(){
+  INGRESSGATEWAY=envoy
+  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace contour-external --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+}
+
 
 run $@
