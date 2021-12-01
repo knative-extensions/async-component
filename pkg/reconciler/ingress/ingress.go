@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
-	"strings"
 	"fmt"
+	"go.uber.org/zap"
 	"os"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,33 +44,44 @@ const (
 	preferSyncValue         = "respond-sync"
 	asyncAlwaysMode         = "always.async.knative.dev"
 	asyncConditionalMode    = "conditional.async.knative.dev"
-	publicLBDomain          = "istio-ingressgateway.istio-system.svc.cluster.local"
-	privateLBDomain         = "knative-local-gateway.istio-system.svc.cluster.local"
+	publicLBDomain          = "kourier.kourier-system.svc.cluster.local"
+	privateLBDomain         = "kourier-internal.kourier-system.svc.cluster.local"
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
 	ingressSuffix           = ".ingress.networking.knative.dev"
 )
 
+type loadBalancerDomain struct {
+	Private, Public string
+}
+
+var loadBalancers = map[string]loadBalancerDomain{
+	"istio":   loadBalancerDomain{"istio-ingressgateway.istio-system.svc.cluster.local", "knative-local-gateway.istio-system.svc.cluster.local"},
+	"kourier": loadBalancerDomain{"kourier.kourier-system.svc.cluster.local", "kourier.kourier-system.svc.cluster.local"},
+	// "contour":    loadBalancerDomain{"",""},
+	// "ambassador": loadBalancerDomain{"",""}, TODO Add contour/ambassador after successful tests in cluster
+}
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) reconciler.Event {
 	logger := logging.FromContext(ctx)
 	ingressClass := os.Getenv(ingressClassName)
 
-	if strings.HasSuffix(ingressClass,ingressSuffix) {
+	if strings.HasSuffix(ingressClass, ingressSuffix) {
 		logger.Debugf("valid ingress suffix detected, using ingress class name %s", ingressClass)
 	} else {
 		logger.Debugf("invalid ingress detected: %s -- setting ingress class to istio default", ingressClass)
-                ingressClass = networkpkg.IstioIngressClassName
+		ingressClass = networkpkg.IstioIngressClassName
 	}
-        
+
 	err := validateAsyncModeAnnotation(ing.Annotations)
 	if err != nil {
 		logger.Errorf("error validating ingress annotations: %w", err)
 		return err
 	}
 
-	markIngressReady(ing) //TODO(bvennam): this just sets the status of KIngress, but load balancer isn't needed.
+	markIngressReady(ing, logger)
 	desired := makeNewIngress(ing, ingressClass)
 	service := MakeK8sService(ing)
 	_, err = r.reconcileIngress(ctx, desired)
@@ -176,8 +188,9 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 }
 
-// TODO(bvennam) track status of upstream ingress that is created "-new"
-func markIngressReady(ingress *v1alpha1.Ingress) {
+func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
+	logger.Info(zap.Any("ingressInfo", ingress.ObjectMeta))
+
 	privateDomain := domainForLocalGateway(ingress.Name, true)
 	publicDomain := domainForLocalGateway(ingress.Name, false)
 
@@ -192,12 +205,18 @@ func markIngressReady(ingress *v1alpha1.Ingress) {
 	ingress.Status.MarkNetworkConfigured()
 }
 
-// TODO(bvennam) we need to pull this from the upstream ingress that is create "-new"
 func domainForLocalGateway(ingressName string, isPrivate bool) string {
-	if isPrivate {
-		return privateLBDomain
+	if LBDomain, ok := loadBalancers[strings.Split(ingressName, ".")[0]]; ok {
+		if isPrivate {
+			return LBDomain.Private
+		}
+		return LBDomain.Public
+	} else {
+		if isPrivate {
+			return privateLBDomain
+		}
+		return publicLBDomain
 	}
-	return publicLBDomain
 }
 
 func (r *Reconciler) reconcileService(ctx context.Context, desiredSvc *corev1.Service) error {
