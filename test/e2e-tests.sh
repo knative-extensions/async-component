@@ -137,6 +137,7 @@ delete_networking(){
 
 set_up_networking_kourier(){
   kubectl apply -f https://github.com/knative/net-kourier/releases/latest/download/kourier.yaml || fail_test
+  sleep 10
   kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}' || fail_test
 }
 
@@ -150,6 +151,8 @@ set_up_networking_ambassador(){
     --filename https://getambassador.io/yaml/ambassador/ambassador-crds.yaml \
     --filename https://getambassador.io/yaml/ambassador/ambassador-rbac.yaml \
     --filename https://getambassador.io/yaml/ambassador/ambassador-service.yaml || fail_test
+
+  sleep 10
 
   kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || fail_test
 
@@ -172,6 +175,7 @@ delete_networking_ambassador(){
 set_up_networking_contour(){
   kubectl apply -f https://github.com/knative/net-contour/releases/latest/download/contour.yaml || fail_test
   kubectl apply -f https://github.com/knative/net-contour/releases/latest/download/net-contour.yaml || fail_test
+  sleep 10
   kubectl patch configmap/config-network \
     --namespace knative-serving \
     --type merge \
