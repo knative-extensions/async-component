@@ -206,17 +206,26 @@ func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
 }
 
 func domainForLocalGateway(ingressName string, isPrivate bool) string {
+	// checks for a valid domain in the list of load balancers
 	if LBDomain, ok := loadBalancers[strings.Split(ingressName, ".")[0]]; ok {
-		if isPrivate {
-			return LBDomain.Private
-		}
-		return LBDomain.Public
+		return getLoadBalancerDomain(LBDomain, isPrivate)
 	} else {
-		if isPrivate {
-			return privateLBDomain
-		}
-		return publicLBDomain
+		return getDefaultLoadBalancerDomain(isPrivate)
 	}
+}
+
+func getDefaultLoadBalancerDomain(isPrivate bool) string {
+	if isPrivate {
+		return privateLBDomain
+	}
+	return publicLBDomain
+}
+
+func getLoadBalancerDomain(LBDomain loadBalancerDomain, isPrivate bool) string {
+	if isPrivate {
+		return LBDomain.Private
+	}
+	return LBDomain.Public
 }
 
 func (r *Reconciler) reconcileService(ctx context.Context, desiredSvc *corev1.Service) error {
