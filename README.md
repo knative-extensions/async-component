@@ -55,8 +55,6 @@ To istio:
    value: istio.ingress.networking.knative.dev
 ```
 
-Other ingresses may also be used such as ambassador, countour, etc.
-
 ## Install the Redis source
 
 ### Using a cloud based Redis instance
