@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
+	networkpkg "knative.dev/networking/pkg"
 	"os"
 	"strings"
 
@@ -14,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	networkpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
@@ -44,8 +44,8 @@ const (
 	preferSyncValue         = "respond-sync"
 	asyncAlwaysMode         = "always.async.knative.dev"
 	asyncConditionalMode    = "conditional.async.knative.dev"
-	publicLBDomain          = "kourier.kourier-system.svc.cluster.local"
-	privateLBDomain         = "kourier-internal.kourier-system.svc.cluster.local"
+	publicLBDomain          = "knative-local-gateway.istio-system.svc.cluster.local"
+	privateLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
@@ -68,10 +68,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	logger := logging.FromContext(ctx)
 	ingressClass := os.Getenv(ingressClassName)
 
-	if strings.HasSuffix(ingressClass, ingressSuffix) {
-		logger.Debugf("valid ingress suffix detected, using ingress class name %s", ingressClass)
+	if ingressName, ok := loadBalancers[strings.Split(ingressClass, ".")[0]]; ok {
+		logger.Debugf("valid ingress name detected %s, using ingress class %s", ingressName, ingressClass)
 	} else {
-		logger.Debugf("invalid ingress detected: %s -- setting ingress class to istio default", ingressClass)
+		logger.Debugf("invalid ingress detected, %s -- setting ingress claass to %s", ingressClass, networkpkg.IstioIngressClassName)
 		ingressClass = networkpkg.IstioIngressClassName
 	}
 
@@ -191,8 +191,8 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
 	logger.Info(zap.Any("ingressInfo", ingress.ObjectMeta))
 
-	privateDomain := domainForLocalGateway(ingress.Name, true)
-	publicDomain := domainForLocalGateway(ingress.Name, false)
+	privateDomain := domainForLocalGateway(ingress.Name, true, logger)
+	publicDomain := domainForLocalGateway(ingress.Name, false, logger)
 
 	ingress.Status.MarkLoadBalancerReady(
 		[]v1alpha1.LoadBalancerIngressStatus{{
@@ -205,11 +205,13 @@ func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
 	ingress.Status.MarkNetworkConfigured()
 }
 
-func domainForLocalGateway(ingressName string, isPrivate bool) string {
+func domainForLocalGateway(ingressName string, isPrivate bool, logger *zap.SugaredLogger) string {
 	// checks for a valid domain in the list of load balancers
 	if LBDomain, ok := loadBalancers[strings.Split(ingressName, ".")[0]]; ok {
+		logger.Debugf("valid domain name detected, using load balancer domain %s", LBDomain)
 		return getLoadBalancerDomain(LBDomain, isPrivate)
 	} else {
+		logger.Debugf("invalid domain name detected, using default load balancer domain %s", getDefaultLoadBalancerDomain(isPrivate))
 		return getDefaultLoadBalancerDomain(isPrivate)
 	}
 }

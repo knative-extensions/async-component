@@ -36,23 +36,22 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ko apply -f config/ingress/controller.yaml
     ```
 
-### Note: Kourier is the default ingress.
+### Note: Istio is the default ingress.
 To change this edit the prefix of `INGRESS_CLASS_NAME` in the config/ingress/controller.yaml file.
 
-For example change the default kourier:
-```
- env:
- - name: INGRESS_CLASS_NAME
-   value: kourier.ingress.networking.knative.dev
-```
-
-
-To istio:
-
+For example change the default istio:
 ```
  env:
  - name: INGRESS_CLASS_NAME
    value: istio.ingress.networking.knative.dev
+```
+
+To kourier:
+
+```
+ env:
+ - name: INGRESS_CLASS_NAME
+   value: kourier.ingress.networking.knative.dev
 ```
 
 ## Install the Redis source
