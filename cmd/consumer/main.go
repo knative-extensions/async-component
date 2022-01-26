@@ -61,7 +61,6 @@ func consumeEvent(event cloudevents.Event) error {
 	if err != nil {
 		return fmt.Errorf("problem calling url: %w", err)
 	}
-	log.Printf("Received response: %s\n", resp.Status)
 	defer resp.Body.Close()
 	return nil
 }

@@ -49,7 +49,6 @@ const (
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
-	ingressSuffix           = ".ingress.networking.knative.dev"
 )
 
 type loadBalancerDomain struct {
@@ -68,10 +67,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	logger := logging.FromContext(ctx)
 	ingressClass := os.Getenv(ingressClassName)
 
-	if ingressName, ok := loadBalancers[strings.Split(ingressClass, ".")[0]]; ok {
-		logger.Debugf("valid ingress name detected %s, using ingress class %s", ingressName, ingressClass)
-	} else {
-		logger.Debugf("invalid ingress detected, %s -- setting ingress claass to %s", ingressClass, networkpkg.IstioIngressClassName)
+	if _, ok := loadBalancers[strings.Split(ingressClass, ".")[0]]; !ok {
 		ingressClass = networkpkg.IstioIngressClassName
 	}
 
