@@ -2,10 +2,10 @@ package ingress
 
 import (
 	"context"
-	"strings"
 	"fmt"
 	"go.uber.org/zap"
 	"os"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -44,8 +44,8 @@ const (
 	preferSyncValue         = "respond-sync"
 	asyncAlwaysMode         = "always.async.knative.dev"
 	asyncConditionalMode    = "conditional.async.knative.dev"
-	publicLBDomain          = "istio-ingressgateway.istio-system.svc.cluster.local"
-	privateLBDomain         = "knative-local-gateway.istio-system.svc.cluster.local"
+	publicLBDomain          = "knative-local-gateway.istio-system.svc.cluster.local"
+	privateLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
@@ -74,7 +74,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 		logger.Debugf("invalid ingress detected, %s -- setting ingress claass to %s", ingressClass, networkpkg.IstioIngressClassName)
 		ingressClass = networkpkg.IstioIngressClassName
 	}
-        
+
 	err := validateAsyncModeAnnotation(ing.Annotations)
 	if err != nil {
 		logger.Errorf("error validating ingress annotations: %w", err)
