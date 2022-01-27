@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"os"
 	"strings"
 
@@ -77,7 +76,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 		return err
 	}
 
-	markIngressReady(ing, logger)
+	markIngressReady(ing)
 	desired := makeNewIngress(ing, ingressClass)
 	service := MakeK8sService(ing)
 	_, err = r.reconcileIngress(ctx, desired)
@@ -184,11 +183,9 @@ func makeNewIngress(ingress *v1alpha1.Ingress, ingressClass string) *v1alpha1.In
 	}
 }
 
-func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
-	logger.Info(zap.Any("ingressInfo", ingress.ObjectMeta))
-
-	privateDomain := domainForLocalGateway(ingress.Name, true, logger)
-	publicDomain := domainForLocalGateway(ingress.Name, false, logger)
+func markIngressReady(ingress *v1alpha1.Ingress) {
+	privateDomain := domainForLocalGateway(ingress.Name, true)
+	publicDomain := domainForLocalGateway(ingress.Name, false)
 
 	ingress.Status.MarkLoadBalancerReady(
 		[]v1alpha1.LoadBalancerIngressStatus{{
@@ -201,13 +198,11 @@ func markIngressReady(ingress *v1alpha1.Ingress, logger *zap.SugaredLogger) {
 	ingress.Status.MarkNetworkConfigured()
 }
 
-func domainForLocalGateway(ingressName string, isPrivate bool, logger *zap.SugaredLogger) string {
+func domainForLocalGateway(ingressName string, isPrivate bool) string {
 	// checks for a valid domain in the list of load balancers
 	if LBDomain, ok := loadBalancers[strings.Split(ingressName, ".")[0]]; ok {
-		logger.Debugf("valid domain name detected, using load balancer domain %s", LBDomain)
 		return getLoadBalancerDomain(LBDomain, isPrivate)
 	} else {
-		logger.Debugf("invalid domain name detected, using default load balancer domain %s", getDefaultLoadBalancerDomain(isPrivate))
 		return getDefaultLoadBalancerDomain(isPrivate)
 	}
 }
