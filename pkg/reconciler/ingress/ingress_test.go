@@ -179,7 +179,7 @@ var conditionalAsyncPaths = []netv1alpha1.HTTPIngressPath{{
 }
 var createdIng = ingressWithPaths(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
 var createdIngWithAsyncAlways = ingressWithPaths(defaultNamespace, testingAlwaysAsyncName, statusUnknown, alwaysAsyncPaths)
-var createdIngWithKourier = ingressWithKourier(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
+var createdIngWithIstio = ingressWithIstio(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
 var createdUnknownLBIng = ingressWithUnknownLB(defaultNamespace, testingName, statusUnknown, conditionalAsyncPaths)
 
 func TestReconcile(t *testing.T) {
@@ -254,20 +254,20 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func TestKourierIngress(t *testing.T) {
+func TestIstioIngress(t *testing.T) {
 	createdIng.Status.InitializeConditions()
 	changedService := service(defaultNamespace, testingName)
 	changedService.Spec.ExternalName = "changed"
 	defaultIngressClassName := os.Getenv("INGRESS_CLASS_NAME")
 	table := TableTest{{
-		Name: "create new ingress with kourier",
+		Name: "create new ingress with istio",
 		Key:  "default/testing",
 		Objects: []runtime.Object{
 			ingSometimesAsync,
 		},
-		Ctx: context.WithValue(context.Background(), "ingressClass", "kourier.ingress.networking.knative.dev"),
+		Ctx: context.WithValue(context.Background(), "ingressClass", "istio.ingress.networking.knative.dev"),
 		WantCreates: []runtime.Object{
-			createdIngWithKourier,
+			createdIngWithIstio,
 			service(defaultNamespace, testingName),
 		}},
 	}
@@ -276,7 +276,7 @@ func TestKourierIngress(t *testing.T) {
 	os.Setenv("INGRESS_CLASS_NAME", defaultIngressClassName)
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		os.Setenv("INGRESS_CLASS_NAME", "kourier.ingress.networking.knative.dev")
+		os.Setenv("INGRESS_CLASS_NAME", "istio.ingress.networking.knative.dev")
 		r := &Reconciler{
 			netclient:     fakenetworkingclient.Get(ctx),
 			ingressLister: listers.GetIngressLister(),
@@ -370,7 +370,7 @@ func ingressWithPaths(namespace, name string, status v1alpha1.IngressStatus, pat
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name + newSuffix,
 			Namespace:   namespace,
-			Annotations: map[string]string{networking.IngressClassAnnotationKey: networkpkg.IstioIngressClassName},
+			Annotations: map[string]string{networking.IngressClassAnnotationKey: "kourier.ingress.networking.knative.dev"},
 		},
 		Spec: netv1alpha1.IngressSpec{
 			Rules: []netv1alpha1.IngressRule{{
@@ -385,12 +385,12 @@ func ingressWithPaths(namespace, name string, status v1alpha1.IngressStatus, pat
 	}
 }
 
-func ingressWithKourier(namespace, name string, status v1alpha1.IngressStatus, paths []netv1alpha1.HTTPIngressPath) *v1alpha1.Ingress {
+func ingressWithIstio(namespace, name string, status v1alpha1.IngressStatus, paths []netv1alpha1.HTTPIngressPath) *v1alpha1.Ingress {
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name + newSuffix,
 			Namespace:   namespace,
-			Annotations: map[string]string{networking.IngressClassAnnotationKey: "kourier.ingress.networking.knative.dev"},
+			Annotations: map[string]string{networking.IngressClassAnnotationKey: networkpkg.IstioIngressClassName},
 		},
 		Spec: netv1alpha1.IngressSpec{
 			Rules: []netv1alpha1.IngressRule{{

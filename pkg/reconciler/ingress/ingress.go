@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	networkpkg "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
@@ -43,11 +42,12 @@ const (
 	preferSyncValue         = "respond-sync"
 	asyncAlwaysMode         = "always.async.knative.dev"
 	asyncConditionalMode    = "conditional.async.knative.dev"
-	publicLBDomain          = "knative-local-gateway.istio-system.svc.cluster.local"
-	privateLBDomain         = "istio-ingressgateway.istio-system.svc.cluster.local"
+	publicLBDomain          = "kourier.kourier-system.svc.cluster.local"
+	privateLBDomain         = "kourier-internal.kourier-system.svc.cluster.local"
 	producerServiceName     = "async-producer"
 	asyncOriginalHostHeader = "Async-Original-Host"
 	ingressClassName        = "INGRESS_CLASS_NAME"
+	ingressKourier          = "kourier.ingress.networking.knative.dev"
 )
 
 type loadBalancerDomain struct {
@@ -67,7 +67,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ing *v1alpha1.Ingress) r
 	ingressClass := os.Getenv(ingressClassName)
 
 	if _, ok := loadBalancers[strings.Split(ingressClass, ".")[0]]; !ok {
-		ingressClass = networkpkg.IstioIngressClassName
+		ingressClass = ingressKourier
 	}
 
 	err := validateAsyncModeAnnotation(ing.Annotations)

@@ -111,8 +111,8 @@ set_up_networking(){
     echo "Setting up Ambassador as networking layer"
     set_up_networking_ambassador
   else
-    echo "No networking flag found - setting up default networking layer Istio"
-    set_up_networking_istio
+    echo "No networking flag found - setting up default networking layer Kourier"
+    set_up_networking_kourier
   fi
 }
 
@@ -130,8 +130,8 @@ delete_networking(){
     echo "Deleting networking layer Ambassador"
     delete_networking_ambassador
   else
-    echo "No networking flag found - deleting default networking layer Istio"
-    delete_networking_istio
+    echo "No networking flag found - deleting networking layer Kourier"
+    delete_networking_kourier
   fi
 }
 
@@ -285,7 +285,7 @@ install_ingress_controller(){
       echo "Setting up ingress controller for Ambassador"
       ko apply -f config/ingress/ambassador.yaml
     else
-      echo "Setting up ingress controller for custom local (default - Istio)"
+      echo "Setting up ingress controller for custom local (default - Kourier)"
       ko apply -f config/ingress/controller.yaml
     fi
 }
@@ -304,8 +304,8 @@ set_gateway_ip(){
     echo "Setting gateway ip for Ambassador"
     set_gateway_ip_ambassador
   else
-    echo "Setting gateway ip for default Istio"
-    set_gateway_ip_istio
+    echo "Setting gateway ip for default Kourier"
+    set_gateway_ip_kourier
   fi
 }
 
