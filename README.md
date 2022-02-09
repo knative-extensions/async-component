@@ -115,7 +115,7 @@ To istio:
 
     Note: If you don't see the service make sure you are using the default namespace
 
-1. (Optional) If you wanted every service newly created by knative to respond to the `Prefer: respond-async` header, you can configure Knative Serving to use the async ingress class for every service.
+1. (Optional) If you wanted every service newly created by knative to respond to the `Prefer: respond-async` header, you can configure Knative Serving to use the async ingress class for every service. See [here](knative.dev/docs/serving/services/ingress-class) for warnings and details on ingress class handling.
 
     ```
     kubectl patch configmap/config-network \
