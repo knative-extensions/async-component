@@ -36,23 +36,23 @@ The following is the request flow (seen in blue in the architecture diagram abov
     ko apply -f config/ingress/controller.yaml
     ```
 
-### Note: Istio is the default ingress.
+### Note: Kourier is the default ingress.
 To change this edit the prefix of `INGRESS_CLASS_NAME` in the config/ingress/controller.yaml file.
 
-For example change the default istio:
+For example change the default kourier:
+```
+ env:
+ - name: INGRESS_CLASS_NAME
+   value: kourier.ingress.networking.knative.dev
+```
+
+To istio:
 ```
  env:
  - name: INGRESS_CLASS_NAME
    value: istio.ingress.networking.knative.dev
 ```
 
-To kourier:
-
-```
- env:
- - name: INGRESS_CLASS_NAME
-   value: kourier.ingress.networking.knative.dev
-```
 
 ## Install the Redis source
 
@@ -115,7 +115,7 @@ To kourier:
 
     Note: If you don't see the service make sure you are using the default namespace
 
-1. (Optional) If you wanted every service created by knative to respond to the `Prefer: respond-async` header, you can configure Knative Serving to use the async ingress class for every service.
+1. (Optional) If you wanted every service newly created by knative to respond to the `Prefer: respond-async` header, you can configure Knative Serving to use the async ingress class for every service. See [here](knative.dev/docs/serving/services/ingress-class) for warnings and details on ingress class handling.
 
     ```
     kubectl patch configmap/config-network \
