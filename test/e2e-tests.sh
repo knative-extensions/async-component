@@ -334,10 +334,23 @@ serving_async_ingress(){
 
   # Cleaning up, restoring to defaults
   kubectl delete -f ./test/app/noAnnoService.yml
+  if [[ $TEST_KOURIER == 1 ]]; then
+    restore_ingress="kourier.ingress.networking.knative.dev"
+  elif [[ $TEST_ISTIO == 1 ]]; then
+    restore_ingress="istio.ingress.networking.knative.dev"
+  elif [[ $TEST_CONTOUR == 1 ]]; then
+    restore_ingress="contour.ingress.networking.knative.dev"
+  elif [[ $TEST_AMBASSADOR == 1 ]]; then
+    restore_ingress="ambassador.ingress.networking.knative.dev"
+  else
+    echo "No networking flag found - restore ingress class Kourier"
+    restore_ingress="kourier.ingress.networking.knative.dev"
+  fi
+
   kubectl patch configmap/config-network \
   -n knative-serving \
   --type merge \
-  -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+  -p '{"data":{"ingress.class":"'$restore_ingress'"}}'
   kubectl apply -f test/app/service.yml
 }
 
