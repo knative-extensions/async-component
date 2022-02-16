@@ -256,6 +256,7 @@ smoke_test() {
   # Get the url for application
   helloworld_url=$(kubectl get kservice helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3)
 
+  # Verify synchronous response
   regular_response=$(curl -s -o /dev/null -w "%{http_code}" $helloworld_url)
 
   if [[ $regular_response != 200 ]]
@@ -263,12 +264,94 @@ smoke_test() {
     fail_test
   fi
 
+  # Verify asynchronous response
   async_response=$(curl -s -o /dev/null -w "%{http_code}" $helloworld_url -H "Prefer: respond-async")
 
   if [[ $async_response != 202 ]]
   then
     fail_test
   fi
+
+  # Additional testing
+  # Tests should restore environment to default test service / ingress classes before ending
+  always_async
+  no_ingress_annotation
+  serving_async_ingress
+}
+
+always_async(){
+  # Recreate test service in always async mode, query without async header, expect 202
+  kubectl delete -f test/app/service.yml
+  kubectl apply -f test/app/alwaysAsyncService.yml
+  sleep 20
+  # Get the url for application
+  helloworld_url=$(kubectl get kservice helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3)
+  always_async_response=$(curl -s -o /dev/null -w "%{http_code}" $helloworld_url)
+  if [[ $always_async_response != 202 ]]
+  then
+    fail_test
+  fi
+
+  kubectl apply -f test/app/service.yml
+}
+
+no_ingress_annotation(){
+  # Deleting original demo service, recreating one with no defined ingress annotation"
+  kubectl delete -f test/app/service.yml
+  kubectl apply -f ./test/app/noAnnoService.yml
+  sleep 20
+  # Calling demo service with async header, but expect it to be handled synchronously by using serving default ingress
+  helloworld_url=$(kubectl get kservice helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3)
+  no_ingress_annotation_response=$(curl -s -o /dev/null -w "%{http_code}" $helloworld_url -H "Prefer: respond-async")
+
+  if [[ $no_ingress_annotation_response != 200 ]]
+  then
+    fail_test
+  fi
+
+  kubectl delete -f ./test/app/noAnnoService.yml
+  kubectl apply -f test/app/service.yml
+}
+
+serving_async_ingress(){
+  # Deleting demo service, patching service network configmap to use async as the default ingress
+  kubectl delete -f test/app/service.yml
+  kubectl patch configmap/config-network \
+  -n knative-serving \
+  --type merge \
+  -p '{"data":{"ingress.class":"async.ingress.networking.knative.dev"}}'
+
+  # Recreating the demo service with no defined ingress annotation, wait for ready, call with async header, expect 202
+  kubectl apply -f ./test/app/noAnnoService.yml
+  sleep 20
+  helloworld_url=$(kubectl get kservice helloworld-sleep --output jsonpath="{.status.url}" | cut -d'/' -f 3)
+  serving_aasync_ingress_response=$(curl -s -o /dev/null -w "%{http_code}" $helloworld_url -H "Prefer: respond-async")
+
+  if [[ $serving_aasync_ingress_response != 202 ]]
+  then
+    fail_test
+  fi
+
+  # Cleaning up, restoring to defaults
+  kubectl delete -f ./test/app/noAnnoService.yml
+  if [[ $TEST_KOURIER == 1 ]]; then
+    restore_ingress="kourier.ingress.networking.knative.dev"
+  elif [[ $TEST_ISTIO == 1 ]]; then
+    restore_ingress="istio.ingress.networking.knative.dev"
+  elif [[ $TEST_CONTOUR == 1 ]]; then
+    restore_ingress="contour.ingress.networking.knative.dev"
+  elif [[ $TEST_AMBASSADOR == 1 ]]; then
+    restore_ingress="ambassador.ingress.networking.knative.dev"
+  else
+    echo "No networking flag found - restore ingress class Kourier"
+    restore_ingress="kourier.ingress.networking.knative.dev"
+  fi
+
+  kubectl patch configmap/config-network \
+  -n knative-serving \
+  --type merge \
+  -p '{"data":{"ingress.class":"'$restore_ingress'"}}'
+  kubectl apply -f test/app/service.yml
 }
 
 install_ingress_controller(){

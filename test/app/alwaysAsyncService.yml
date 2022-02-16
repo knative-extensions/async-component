@@ -1,0 +1,16 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: helloworld-sleep
+  namespace: default
+  annotations:
+    networking.knative.dev/ingress.class: async.ingress.networking.knative.dev
+    async.knative.dev/mode: always.async.knative.dev
+spec:
+  template:
+    metadata:
+      name: helloworld-sleep-v1
+    spec:
+      containerConcurrency: 1
+      containers:
+        - image: docker.io/beemarie/helloworld-sleep
