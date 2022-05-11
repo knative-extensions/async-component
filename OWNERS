@@ -4,6 +4,7 @@ approvers:
   - api-core-wg-leads
   - async-component-approvers
   - bvennam
+  - AngeloDanducci
 
 # Reviewers are suggested from the reviewers list first, then the approvers
 # list. To add reviewers while spreading the load among existing approvers,
@@ -11,3 +12,4 @@ approvers:
 reviewers:
 - api-core-wg-leads
 - bvennam
+- AngeloDanducci
