@@ -22,7 +22,6 @@ source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
 TEST_KOURIER=${TEST_KOURIER:-0}
 TEST_ISTIO=${TEST_ISTIO:-0}
 TEST_CONTOUR=${TEST_CONTOUR:-0}
-TEST_AMBASSADOR=${TEST_AMBASSADOR:-0}
 
 run(){
   # Create cluster
@@ -54,10 +53,6 @@ function parse_flags() {
       ;;
     --istio)
       TEST_ISTIO=1
-      return 1
-      ;;
-    --ambassador)
-      TEST_AMBASSADOR=1
       return 1
       ;;
     --contour)
@@ -107,9 +102,6 @@ set_up_networking(){
   elif [[ $TEST_CONTOUR == 1 ]]; then
     echo "Setting up Contour as networking layer"
     set_up_networking_contour
-  elif [[ $TEST_AMBASSADOR == 1 ]]; then
-    echo "Setting up Ambassador as networking layer"
-    set_up_networking_ambassador
   else
     echo "No networking flag found - setting up default networking layer Kourier"
     set_up_networking_kourier
@@ -126,9 +118,6 @@ delete_networking(){
   elif [[ $TEST_CONTOUR == 1 ]]; then
     echo "Deleting networking layer Contour"
     delete_networking_contour
-  elif [[ $TEST_AMBASSADOR == 1 ]]; then
-    echo "Deleting networking layer Ambassador"
-    delete_networking_ambassador
   else
     echo "No networking flag found - deleting networking layer Kourier"
     delete_networking_kourier
@@ -143,33 +132,6 @@ set_up_networking_kourier(){
 
 delete_networking_kourier(){
   kubectl delete -f https://github.com/knative/net-kourier/releases/latest/download/kourier.yaml
-}
-
-set_up_networking_ambassador(){
-  kubectl create namespace ambassador || fail_test
-  kubectl apply --namespace ambassador \
-    --filename https://getambassador.io/yaml/ambassador/ambassador-crds.yaml \
-    --filename https://getambassador.io/yaml/ambassador/ambassador-rbac.yaml \
-    --filename https://getambassador.io/yaml/ambassador/ambassador-service.yaml || fail_test
-
-  sleep 10
-
-  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || fail_test
-
-  kubectl set env --namespace ambassador  deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || fail_test
-
-  kubectl patch configmap/config-network \
-    --namespace knative-serving \
-    --type merge \
-    --patch '{"data":{"ingress-class":"ambassador.ingress.networking.knative.dev"}}' || fail_test
-}
-
-delete_networking_ambassador(){
-  kubectl delete --namespace default \
-   -f https://getambassador.io/yaml/ambassador/ambassador-crds.yaml \
-   -f https://getambassador.io/yaml/ambassador/ambassador-rbac.yaml \
-   -f https://getambassador.io/yaml/ambassador/ambassador-service.yaml
-  kubectl delete namespace ambassador
 }
 
 set_up_networking_contour(){
@@ -364,9 +326,6 @@ install_ingress_controller(){
     elif [[ $TEST_CONTOUR == 1 ]]; then
       echo "Setting up ingress controller for Contour"
       ko apply -f config/ingress/contour.yaml
-    elif [[ $TEST_AMBASSADOR == 1 ]]; then
-      echo "Setting up ingress controller for Ambassador"
-      ko apply -f config/ingress/ambassador.yaml
     else
       echo "Setting up ingress controller for custom local (default - Kourier)"
       ko apply -f config/ingress/controller.yaml
@@ -383,9 +342,6 @@ set_gateway_ip(){
   elif [[ $TEST_CONTOUR == 1 ]]; then
     echo "Setting gateway ip for Contour"
     set_gateway_ip_contour
-  elif [[ $TEST_AMBASSADOR == 1 ]]; then
-    echo "Setting gateway ip for Ambassador"
-    set_gateway_ip_ambassador
   else
     echo "Setting gateway ip for default Kourier"
     set_gateway_ip_kourier
@@ -402,15 +358,9 @@ set_gateway_ip_istio(){
   export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace istio-system --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 }
 
-set_gateway_ip_ambassador(){
-  INGRESSGATEWAY=ambassador
-  export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace ambassador --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
-}
-
 set_gateway_ip_contour(){
   INGRESSGATEWAY=envoy
   export GATEWAY_IP=`kubectl get svc $INGRESSGATEWAY --namespace contour-external --output jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 }
-
 
 run $@
