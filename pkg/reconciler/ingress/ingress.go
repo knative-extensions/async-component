@@ -55,8 +55,8 @@ type loadBalancerDomain struct {
 }
 
 var loadBalancers = map[string]loadBalancerDomain{
-	"istio":   loadBalancerDomain{"istio-ingressgateway.istio-system.svc.cluster.local", "knative-local-gateway.istio-system.svc.cluster.local"},
-	"kourier": loadBalancerDomain{"kourier.kourier-system.svc.cluster.local", "kourier.kourier-system.svc.cluster.local"},
+	"istio":   {"istio-ingressgateway.istio-system.svc.cluster.local", "knative-local-gateway.istio-system.svc.cluster.local"},
+	"kourier": {"kourier.kourier-system.svc.cluster.local", "kourier.kourier-system.svc.cluster.local"},
 	// "contour":    loadBalancerDomain{"",""},
 	// "ambassador": loadBalancerDomain{"",""}, TODO Add contour/ambassador after successful tests in cluster
 }
