@@ -193,7 +193,7 @@ smoke_test() {
 
   # Install the Redis Source
   cd ./eventing-redis
-  ko apply -f ./source/config || fail_test
+  ko apply -f ./config/source || fail_test
   kubectl apply -f ./samples/redis || fail_test
   cd ..
 
