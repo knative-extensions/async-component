@@ -101,9 +101,9 @@ func setUpRedis() redisInterface {
 		log.Println("didnt find a cert")
 		rc = &myRedis{
 			client: redis.NewClient(&redis.Options{
-				Addr: env.RedisAddress,
+				Addr:     env.RedisAddress,
 				Password: "",
-				DB: 0,
+				DB:       0,
 			}),
 		}
 	}
