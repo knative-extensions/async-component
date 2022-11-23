@@ -18,6 +18,12 @@
 # to be used in test scripts and the like. It doesn't do anything when
 # called from command line.
 
+# Exit early with a message if Bash version is below 4
+if [ "${BASH_VERSINFO:-0}" -lt 4 ]; then
+ echo "library.sh script needs Bash version >=4 to run"
+ exit 1
+fi
+
 # GCP project where all tests related resources live
 readonly KNATIVE_TESTS_PROJECT=knative-tests
 
@@ -34,7 +40,19 @@ fi
 readonly IS_PROW
 [[ ! -v REPO_ROOT_DIR ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT_DIR
-readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
+
+# Resolves the repository name given a root directory.
+# Parameters: $1 - repository root directory.
+function __resolveRepoName() {
+  local repoName
+  repoName="$(basename "${1:-$(git rev-parse --show-toplevel)}")"
+  repoName="${repoName#knative-sandbox-}" # Remove knative-sandbox- prefix if any
+  repoName="${repoName#knative-}" # Remove knative- prefix if any
+  echo "${repoName}"
+}
+default_repo_name="$(__resolveRepoName "${REPO_ROOT_DIR}")"
+readonly REPO_NAME="${REPO_NAME:-$default_repo_name}"
+unset default_repo_name
 
 # Useful flags about the current OS
 IS_LINUX=0
@@ -50,19 +68,83 @@ readonly IS_LINUX
 readonly IS_OSX
 readonly IS_WINDOWS
 
+export TMPDIR="${TMPDIR:-$(mktemp -u -t -d knative.XXXXXXXX)}"
+mkdir -p "$TMPDIR"
 # Set ARTIFACTS to an empty temp dir if unset
 if [[ -z "${ARTIFACTS:-}" ]]; then
-  export ARTIFACTS="$(mktemp -d)"
+  ARTIFACTS="$(mktemp -u -t -d)"
+  export ARTIFACTS
 fi
+mkdir -p "$ARTIFACTS"
 
-# On a Prow job, redirect stderr to stdout so it's synchronously added to log
-(( IS_PROW )) && exec 2>&1
+# Return the major version of a release.
+# For example, "v0.2.1" returns "0"
+# Parameters: $1 - release version label.
+function major_version() {
+  local release="${1//v/}"
+  local tokens=(${release//\./ })
+  echo "${tokens[0]}"
+}
 
-# Print error message and exit 1
+# Return the minor version of a release.
+# For example, "v0.2.1" returns "2"
+# Parameters: $1 - release version label.
+function minor_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[1]}"
+}
+
+# Return the release build number of a release.
+# For example, "v0.2.1" returns "1".
+# Parameters: $1 - release version label.
+function patch_version() {
+  local tokens=(${1//\./ })
+  echo "${tokens[2]}"
+}
+
+# Calculates the hashcode for a given string.
+# Parameters: $* - string to be hashed.
+# See: https://stackoverflow.com/a/48863502/844449
+function hashCode() {
+  local input="$1"
+  local -i h=0
+  for ((i = 0; i < ${#input}; i++)); do
+    # val is ASCII val
+    printf -v val "%d" "'${input:$i:1}"
+    hval=$((31 * h + val))
+    # hash scheme
+    if ((hval > 2147483647)); then
+      h=$(( (hval - 2147483648) % 2147483648 ))
+    elif ((hval < -2147483648)); then
+      h=$(( (hval + 2147483648) % 2147483648 ))
+    else
+      h=$(( hval ))
+    fi
+  done
+  # final hashCode in decimal
+  printf "%d" $h
+}
+
+# Calculates the retcode for a given string. Makes sure the return code is
+# non-zero.
+# Parameters: $* - string to be hashed.
+function calcRetcode() {
+  local rc=1
+  local rcc
+  rcc="$(hashCode "$*")"
+  if [[ $rcc != 0 ]]; then
+    rc=$(( rcc % 255 ))
+  fi
+  echo "$rc"
+}
+
+# Print error message and call exit(n) where n calculated from the error message.
 # Parameters: $1..$n - error message to be displayed
+# Globals: abort_retcode will change the default retcode to be returned
 function abort() {
-  echo "error: $*"
-  exit 1
+  make_banner '*' "ERROR: $*" >&2
+  readonly abort_retcode="${abort_retcode:-$(calcRetcode "$*")}"
+  exit "$abort_retcode"
 }
 
 # Display a box banner.
@@ -70,11 +152,13 @@ function abort() {
 #             $2 - banner message.
 function make_banner() {
   local msg="$1$1$1$1 $2 $1$1$1$1"
-  local border="${msg//[-0-9A-Za-z _.,\/()\']/$1}"
+  local border="${msg//[^$1]/$1}"
   echo -e "${border}\n${msg}\n${border}"
   # TODO(adrcunha): Remove once logs have timestamps on Prow
   # For details, see https://github.com/kubernetes/test-infra/issues/10100
-  echo -e "$1$1$1$1 $(TZ='America/Los_Angeles' date)\n${border}"
+  if (( IS_PROW )); then
+    echo -e "$1$1$1$1 $(TZ='UTC' date --rfc-3339=ns)\n${border}"
+  fi
 }
 
 # Simple header for logging purposes.
@@ -90,7 +174,7 @@ function subheader() {
 
 # Simple warning banner for logging purposes.
 function warning() {
-  make_banner "!" "$1"
+  make_banner '!' "WARN: $*" >&2
 }
 
 # Checks whether the given function exists.
@@ -151,6 +235,32 @@ function wait_until_object_does_not_exist() {
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for ${DESCRIPTION} not to exist"
+  kubectl ${KUBECTL_ARGS}
+  return 1
+}
+
+# Waits until the given object exists.
+# Parameters: $1 - the kind of the object.
+#             $2 - object's name.
+#             $3 - namespace (optional).
+function wait_until_object_exists() {
+  local KUBECTL_ARGS="get $1 $2"
+  local DESCRIPTION="$1 $2"
+
+  if [[ -n $3 ]]; then
+    KUBECTL_ARGS="get -n $3 $1 $2"
+    DESCRIPTION="$1 $3/$2"
+  fi
+  echo -n "Waiting until ${DESCRIPTION} exists"
+  for i in {1..150}; do  # timeout after 5 minutes
+    if kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
+      echo -e "\n${DESCRIPTION} exists"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for ${DESCRIPTION} to exist"
   kubectl ${KUBECTL_ARGS}
   return 1
 }
@@ -372,7 +482,7 @@ function mktemp_with_extension() {
 function create_junit_xml() {
   local xml
   xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
-  echo "JUnit file ${xml} is created for reporting the test result"
+  echo "XML report for $1::$2 written to ${xml}"
   run_kntest junit --suite="$1" --name="$2" --err-msg="$3" --dest="${xml}" || return 1
 }
 
@@ -380,37 +490,38 @@ function create_junit_xml() {
 # Parameters: $1... - parameters to go test
 function report_go_test() {
   local go_test_args=( "$@" )
-  # Install gotestsum if necessary.
-  run_go_tool gotest.tools/gotestsum gotestsum --help > /dev/null 2>&1
-  # Capture the test output to the report file.
-  local report
-  report="$(mktemp)"
-  local xml
+  local logfile xml ansilog htmllog
   xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  # Keep the suffix, so files are related.
+  logfile="${xml/junit_/go_test_}"
+  logfile="${logfile/.xml/.jsonl}"
   echo "Running go test with args: ${go_test_args[*]}"
-  capture_output "${report}" gotestsum --format "${GO_TEST_VERBOSITY:-testname}" \
-    --junitfile "${xml}" --junitfile-testsuite-name relative --junitfile-testcase-classname relative \
-    -- "${go_test_args[@]}"
-  local failed=$?
-  echo "Finished run, return code is ${failed}"
+  local gotest_retcode=0
+  go_run gotest.tools/gotestsum@v1.8.0 \
+    --format "${GO_TEST_VERBOSITY:-testname}" \
+    --junitfile "${xml}" \
+    --junitfile-testsuite-name relative \
+    --junitfile-testcase-classname relative \
+    --jsonfile "${logfile}" \
+    -- "${go_test_args[@]}" || gotest_retcode=$?
+  echo "Finished run, return code is ${gotest_retcode}"
 
   echo "XML report written to ${xml}"
-  if [[ -n "$(grep '<testsuites></testsuites>' "${xml}")" ]]; then
-    # XML report is empty, something's wrong; use the output as failure reason
-    create_junit_xml _go_tests "GoTests" "$(cat "${report}")"
-  fi
-  # Capture and report any race condition errors
-  local race_errors
-  race_errors="$(sed -n '/^WARNING: DATA RACE$/,/^==================$/p' "${report}")"
-  create_junit_xml _go_tests "DataRaceAnalysis" "${race_errors}"
-  if (( ! IS_PROW )); then
-    # Keep the suffix, so files are related.
-    local logfile=${xml/junit_/go_test_}
-    logfile=${logfile/.xml/.log}
-    cp "${report}" "${logfile}"
-    echo "Test log written to ${logfile}"
-  fi
-  return ${failed}
+  echo "Test log (JSONL) written to ${logfile}"
+
+  ansilog="${logfile/.jsonl/-ansi.log}"
+  go_run github.com/haveyoudebuggedit/gotestfmt/v2/cmd/gotestfmt@v2.3.1 \
+    -input "${logfile}" \
+    -showteststatus \
+    -nofail > "$ansilog"
+  echo "Test log (ANSI) written to ${ansilog}"
+
+  htmllog="${logfile/.jsonl/.html}"
+  go_run github.com/buildkite/terminal-to-html/v3/cmd/terminal-to-html@v3.6.1 \
+    --preview < "$ansilog" > "$htmllog"
+  echo "Test log (HTML) written to ${htmllog}"
+
+  return ${gotest_retcode}
 }
 
 # Install Knative Serving in the current cluster.
@@ -486,31 +597,44 @@ function start_latest_eventing_sugar_controller() {
   start_knative_eventing_extension "${KNATIVE_EVENTING_SUGAR_CONTROLLER_RELEASE}" "knative-eventing"
 }
 
+# Run a go utility without installing it.
+# Parameters: $1 - tool package for go run.
+#             $2..$n - parameters passed to the tool.
+function go_run() {
+  local package
+  package="$1"
+  if [[ "$package" != *@* ]]; then
+    abort 'Package for "go_run" needs to have @version'
+  fi
+  if [[ "$package" == *@latest ]] && [[ "$package" != knative.dev* ]]; then
+    warning 'Using @latest version for external dependencies is unsafe. Use numbered version!'
+  fi
+  shift 1
+  GORUN_PATH="${GORUN_PATH:-$(go env GOPATH)}"
+  # Some CI environments may have non-writable GOPATH
+  if ! [ -w "${GORUN_PATH}" ]; then
+    GORUN_PATH="$(mktemp -t -d -u gopath.XXXXXXXX)"
+  fi
+  export GORUN_PATH
+  GOPATH="${GORUN_PATH}" \
+  GOFLAGS='' \
+    go run "$package" "$@"
+}
+
 # Run a go tool, installing it first if necessary.
-# Parameters: $1 - tool package/dir for go get/install.
+# Parameters: $1 - tool package/dir for go install.
 #             $2 - tool to run.
 #             $3..$n - parameters passed to the tool.
+# Deprecated: use go_run instead
 function run_go_tool() {
-  local tool=$2
-  local install_failed=0
-  if [[ -z "$(which ${tool})" ]]; then
-    local action=get
-    [[ $1 =~ ^[\./].* ]] && action=install
-    # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
-    # See discussions in https://github.com/golang/go/issues/27643.
-    if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
-      local temp_dir="$(mktemp -d)"
-      # Swallow the output as we are returning the stdout in the end.
-      pushd "${temp_dir}" > /dev/null 2>&1
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-      popd > /dev/null 2>&1
-    else
-      GOFLAGS="" go ${action} "$1" || install_failed=1
-    fi
+  warning 'The "run_go_tool" function is deprecated. Use "go_run" instead.'
+  local package=$1
+  # If no `@version` is provided, default to adding `@latest`
+  if [[ "$package" != *@* ]]; then
+    package=$package@latest
   fi
-  (( install_failed )) && return ${install_failed}
   shift 2
-  ${tool} "$@"
+  go_run "$package" "$@"
 }
 
 # Add function call to trap
@@ -523,38 +647,65 @@ function add_trap {
     local current_trap
     current_trap="$(trap -p "$trap_signal" | cut -d\' -f2)"
     local new_cmd="($cmd)"
-    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
+    [[ -n "${current_trap}" ]] && new_cmd="${new_cmd};${current_trap}"
     trap -- "${new_cmd}" "$trap_signal"
   done
+}
+
+# Run a command, described by $1, for every go module in the project.
+# Parameters: $1      - Description of the command being run,
+#             $2 - $n - Arguments to pass to the command.
+function foreach_go_module() {
+  local failed=0
+  local -r cmd="$1"
+  shift
+  local gomod_dir
+  while read -r gomod_dir; do
+    pushd "$gomod_dir" > /dev/null
+    "$cmd" "$@" || failed=$?
+    popd > /dev/null
+    if (( failed )); then
+      echo "Command '${cmd}' failed in module $gomod_dir: $failed" >&2
+      return $failed
+    fi
+  done < <(go_run knative.dev/test-infra/tools/modscope@latest ls -p)
 }
 
 # Update go deps.
 # Parameters (parsed as flags):
 #   "--upgrade", bool, do upgrade.
-#   "--release <version>" used with upgrade. The release version to upgrade
+#   "--release <release-version>" used with upgrade. The release version to upgrade
 #                         Knative components. ex: --release v0.18. Defaults to
-#                         "master".
+#                         "main".
+#   "--module-release <module-version>" used to define a different go module tag
+#                         for a release. ex: --release v1.0 --module-release v0.27
 # Additional dependencies can be included in the upgrade by providing them in a
 # global env var: FLOATING_DEPS
 # --upgrade will set GOPROXY to direct unless it is already set.
 function go_update_deps() {
-  cd "${REPO_ROOT_DIR}" || return 1
+  foreach_go_module __go_update_deps_for_module "$@"
+}
 
-  export GO111MODULE=on
+function __go_update_deps_for_module() {
+  ( # do not modify the environment
+  set -Eeuo pipefail
+
   export GOFLAGS=""
   export GONOSUMDB="${GONOSUMDB:-},knative.dev/*"
   export GONOPROXY="${GONOPROXY:-},knative.dev/*"
 
-  echo "=== Update Deps for Golang"
+  echo "=== Update Deps for Golang module: $(go_mod_module_name)"
 
   local UPGRADE=0
-  local VERSION="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
+  local RELEASE="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
+  local RELEASE_MODULE=""
   local DOMAIN="knative.dev"
   while [[ $# -ne 0 ]]; do
     parameter=$1
     case ${parameter} in
       --upgrade) UPGRADE=1 ;;
-      --release) shift; VERSION="$1" ;;
+      --release) shift; RELEASE="$1" ;;
+      --module-release) shift; RELEASE_MODULE="$1" ;;
       --domain) shift; DOMAIN="$1" ;;
       *) abort "unknown option ${parameter}" ;;
     esac
@@ -562,8 +713,14 @@ function go_update_deps() {
   done
 
   if [[ $UPGRADE == 1 ]]; then
-    group "Upgrading to ${VERSION}"
-    FLOATING_DEPS+=( $(run_go_tool knative.dev/test-infra/buoy buoy float ${REPO_ROOT_DIR}/go.mod --release ${VERSION} --domain ${DOMAIN}) )
+    local buoyArgs=(--release ${RELEASE}  --domain ${DOMAIN})
+    if [ -n "$RELEASE_MODULE" ]; then
+      group "Upgrading for release ${RELEASE} to release module version ${RELEASE_MODULE}"
+      buoyArgs+=(--module-release ${RELEASE_MODULE})
+    else
+      group "Upgrading to release ${RELEASE}"
+    fi
+    FLOATING_DEPS+=( $(go_run knative.dev/test-infra/buoy@latest float ./go.mod "${buoyArgs[@]}") )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"
       go get -d ${FLOATING_DEPS[@]}
@@ -581,6 +738,9 @@ function go_update_deps() {
   go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
   eval "$orig_pipefail_opt"
 
+  if ! [ -d vendor ]; then
+    return 0
+  fi
   group "Removing unwanted vendor files"
 
   # Remove unwanted vendor files
@@ -597,13 +757,15 @@ function go_update_deps() {
 
   group "Removing broken symlinks"
   remove_broken_symlinks ./vendor
+  )
 }
+
 
 # Return the go module name of the current module.
 # Intended to be used like:
 #   export MODULE_NAME=$(go_mod_module_name)
 function go_mod_module_name() {
-  go mod graph | cut -d' ' -f 1 | grep -v '@' | head -1
+  go_run knative.dev/test-infra/tools/modscope@latest current
 }
 
 # Return a GOPATH to a temp directory. Works around the out-of-GOPATH issues
@@ -624,31 +786,29 @@ function go_mod_gopath_hack() {
   echo "${TMP_DIR}"
 }
 
-# Run kntest tool, error out and ask users to install it if it's not currently installed.
+# Run kntest tool
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {
-  if [[ ! -x "$(command -v kntest)" ]]; then
-    echo "--- FAIL: kntest not installed, please clone knative test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
-  fi
-  kntest "$@"
+  go_run knative.dev/test-infra/tools/kntest/cmd/kntest@latest "$@"
 }
 
 # Run go-licenses to update licenses.
 # Parameters: $1 - output file, relative to repo root dir.
 #             $2 - directory to inspect.
 function update_licenses() {
-  cd "${REPO_ROOT_DIR}" || return 1
   local dst=$1
   local dir=$2
   shift
-  run_go_tool github.com/google/go-licenses go-licenses save "${dir}" --save_path="${dst}" --force || \
+  go_run github.com/google/go-licenses@v1.2.1 \
+    save "${dir}" --save_path="${dst}" --force || \
     { echo "--- FAIL: go-licenses failed to update licenses"; return 1; }
 }
 
 # Run go-licenses to check for forbidden licenses.
 function check_licenses() {
   # Check that we don't have any forbidden licenses.
-  run_go_tool github.com/google/go-licenses go-licenses check "${REPO_ROOT_DIR}/..." || \
+  go_run github.com/google/go-licenses@v1.2.1 \
+    check "${REPO_ROOT_DIR}/..." || \
     { echo "--- FAIL: go-licenses failed the license check"; return 1; }
 }
 
@@ -680,7 +840,7 @@ function is_protected_project() {
 # Remove symlinks in a path that are broken or lead outside the repo.
 # Parameters: $1 - path name, e.g. vendor
 function remove_broken_symlinks() {
-  for link in $(find $1 -type l); do
+  for link in $(find "$1" -type l); do
     # Remove broken symlinks
     if [[ ! -e ${link} ]]; then
       unlink ${link}
@@ -730,6 +890,7 @@ function current_branch() {
   # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
   # Otherwise, try getting the current branch from git.
   (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="${GITHUB_BASE_REF:-}"
   [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
   echo "${branch_name}"
 }
@@ -794,33 +955,56 @@ function shellcheck_new_files() {
   fi
 }
 
+# Note: if using Github checkout action please ensure you fetch all tags prior to calling
+# this function
+#
+# ie.
+# - uses: actions/checkout@v2
+#   with:
+#     fetch-depth: 0
+#
+# See: https://github.com/actions/checkout#fetch-all-history-for-all-tags-and-branches
 function latest_version() {
-  # This function works "best effort" and works on Prow but not necessarily locally.
-  # The problem is finding the latest release. If a release occurs on the same commit which
-  # was branched from main, then the tag will be an ancestor to any commit derived from main.
-  # That was the original logic. Additionally in a release branch, the tag is always an ancestor.
-  # However, if the release commit ends up not the first commit from main, then the tag is not
-  # an ancestor of main, so we can't use `git describe` to find the most recent versioned tag. So
-  # we just sort all the tags and find the newest versioned one.
-  # But when running locally, we cannot(?) know if the current branch is a fork of main or a fork
-  # of a release branch. That's where this function will malfunction when the last release did not
-  # occur on the first commit -- it will try to run the upgrade tests from an older version instead
-  # of the most recent release.
-  # Workarounds include:
-  # Tag the first commit of the release branch. Say release-0.75 released v0.75.0 from the second commit
-  # Then tag the first commit in common between main and release-0.75 with `v0.75`.
-  # Always name your local fork master or main.
-  if [ $(current_branch) = "master" ] || [ $(current_branch) = "main" ]; then
-    # For main branch, simply use git tag without major version, this will work even
-    # if the release tag is not in the main
-    git tag -l "v[0-9]*" | sort -r --version-sort | head -n1
-  else
-    local semver=$(git describe --match "v[0-9]*" --abbrev=0)
-    local major_minor=$(echo "$semver" | cut -d. -f1-2)
+  local branch_name="$(current_branch)"
 
-    # Get the latest patch release for the major minor
-    git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+  # Use the latest release for main
+  if [[ "$branch_name" == "main" ]] || [[ "$branch_name" == "master" ]]; then
+    git tag -l "*$(git tag -l "*v[0-9]*" | cut -d '-' -f2 | sort -r --version-sort | head -n1)*"
+    return
   fi
+
+  # Ideally we shouldn't need to treat release branches differently but
+  # there are scenarios where git describe will return newer tags than
+  # the ones on the current branch
+  #
+  # ie. create a PR pulling commits from 0.24 into a release-0.23 branch
+  if [[ "$branch_name" == "release-"* ]]; then
+    # Infer major, minor version from the branch name
+    local tag="${branch_name##release-}"
+  else
+    # Nearest tag with the `knative-` prefix
+    local tag=$(git describe --abbrev=0 --match "knative-v[0-9]*")
+
+    # Fallback to older tag scheme vX.Y.Z
+    [[ -z "${tag}" ]] && tag=$(git describe --abbrev=0 --match "v[0-9]*")
+
+    # Drop the prefix
+    tag="${tag##knative-}"
+  fi
+
+  local major_version="$(major_version ${tag})"
+  local minor_version="$(minor_version ${tag})"
+
+  # Hardcode the jump back from 1.0
+  if [ "$major_version" = "1" ] && [ "$minor_version" = "0" ]; then
+    local tag_filter='v0.26*'
+  else
+    # Adjust the minor down by one
+    local tag_filter="*v$major_version.$(( minor_version - 1 ))*"
+  fi
+
+  # Get the latest patch release for the major minor
+  git tag -l "${tag_filter}" | sort -r --version-sort | head -n1
 }
 
 # Initializations that depend on previous functions.
