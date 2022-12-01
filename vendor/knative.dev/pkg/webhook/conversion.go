@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 	apixv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 )
 
@@ -36,8 +38,9 @@ type ConversionController interface {
 	Convert(context.Context, *apixv1.ConversionRequest) *apixv1.ConversionResponse
 }
 
-func conversionHandler(rootLogger *zap.SugaredLogger, _ StatsReporter, c ConversionController) http.HandlerFunc {
+func conversionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c ConversionController) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var ttStart = time.Now()
 		logger := rootLogger
 		logger.Infof("Webhook ServeHTTP request=%#v", r)
 
@@ -53,6 +56,8 @@ func conversionHandler(rootLogger *zap.SugaredLogger, _ StatsReporter, c Convers
 		)
 
 		ctx := logging.WithLogger(r.Context(), logger)
+		ctx = apis.WithHTTPRequest(ctx, r)
+
 		response := apixv1.ConversionReview{
 			// Use the same type meta as the request - this is required by the K8s API
 			// note: v1beta1 & v1 ConversionReview shapes are identical so even though
@@ -66,10 +71,9 @@ func conversionHandler(rootLogger *zap.SugaredLogger, _ StatsReporter, c Convers
 			return
 		}
 
-		// TODO(dprotaso) - figure out what metrics we want reported
-		// if stats != nil {
-		// 	// Only report valid requests
-		// 	stats.ReportRequest(review.Request, response.Response, time.Since(ttStart))
-		// }
+		if stats != nil {
+			// Only report valid requests
+			stats.ReportConversionRequest(review.Request, response.Response, time.Since(ttStart))
+		}
 	}
 }

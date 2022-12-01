@@ -26,17 +26,14 @@ import (
 	"time"
 
 	// Injection stuff
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+
 	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
 	"knative.dev/pkg/network/handlers"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	certresources "knative.dev/pkg/webhook/certificates/resources"
 )
@@ -51,6 +48,7 @@ type Options struct {
 	// server key/cert are used to serve the webhook and the CA cert
 	// is provided to k8s apiserver during admission controller
 	// registration.
+	// If no SecretName is provided, then the webhook serves without TLS.
 	SecretName string
 
 	// Port where the webhook is served. Per k8s admission
@@ -61,6 +59,10 @@ type Options struct {
 	// StatsReporter reports metrics about the webhook.
 	// This will be automatically initialized by the constructor if left uninitialized.
 	StatsReporter StatsReporter
+
+	// GracePeriod is how long to wait after failing readiness probes
+	// before shutting down.
+	GracePeriod time.Duration
 }
 
 // Operation is the verb being operated on
@@ -78,19 +80,16 @@ const (
 // Webhook implements the external webhook for validation of
 // resources and configuration.
 type Webhook struct {
-	Client  kubernetes.Interface
 	Options Options
 	Logger  *zap.SugaredLogger
 
 	// synced is function that is called when the informers have been synced.
 	synced context.CancelFunc
 
-	// grace period is how long to wait after failing readiness probes
-	// before shutting down.
-	gracePeriod time.Duration
+	mux http.ServeMux
 
-	mux          http.ServeMux
-	secretlister corelisters.SecretLister
+	// The TLS configuration to use for serving (or nil for non-TLS)
+	tlsConfig *tls.Config
 }
 
 // New constructs a Webhook
@@ -105,15 +104,6 @@ func New(
 			err = fmt.Errorf("error creating webhook %v", r)
 		}
 	}()
-
-	client := kubeclient.Get(ctx)
-
-	// Injection is too aggressive for this case because by simply linking this
-	// library we force consumers to have secret access.  If we require that one
-	// of the admission controllers' informers *also* require the secret
-	// informer, then we can fetch the shared informer factory here and produce
-	// a new secret informer from it.
-	secretInformer := kubeinformerfactory.Get(ctx).Core().V1().Secrets()
 
 	opts := GetOptions(ctx)
 	if opts == nil {
@@ -132,12 +122,50 @@ func New(
 	syncCtx, cancel := context.WithCancel(context.Background())
 
 	webhook = &Webhook{
-		Client:       client,
-		Options:      *opts,
-		secretlister: secretInformer.Lister(),
-		Logger:       logger,
-		synced:       cancel,
-		gracePeriod:  network.DefaultDrainTimeout,
+		Options: *opts,
+		Logger:  logger,
+		synced:  cancel,
+	}
+
+	if opts.SecretName != "" {
+		// Injection is too aggressive for this case because by simply linking this
+		// library we force consumers to have secret access.  If we require that one
+		// of the admission controllers' informers *also* require the secret
+		// informer, then we can fetch the shared informer factory here and produce
+		// a new secret informer from it.
+		secretInformer := kubeinformerfactory.Get(ctx).Core().V1().Secrets()
+
+		webhook.tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+
+			// If we return (nil, error) the client sees - 'tls: internal error"
+			// If we return (nil, nil) the client sees - 'tls: no certificates configured'
+			//
+			// We'll return (nil, nil) when we don't find a certificate
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				secret, err := secretInformer.Lister().Secrets(system.Namespace()).Get(opts.SecretName)
+				if err != nil {
+					logger.Errorw("failed to fetch secret", zap.Error(err))
+					return nil, nil
+				}
+
+				serverKey, ok := secret.Data[certresources.ServerKey]
+				if !ok {
+					logger.Warn("server key missing")
+					return nil, nil
+				}
+				serverCert, ok := secret.Data[certresources.ServerCert]
+				if !ok {
+					logger.Warn("server cert missing")
+					return nil, nil
+				}
+				cert, err := tls.X509KeyPair(serverCert, serverKey)
+				if err != nil {
+					return nil, err
+				}
+				return &cert, nil
+			},
+		}
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -177,50 +205,28 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 
 	drainer := &handlers.Drainer{
 		Inner:       wh,
-		QuietPeriod: wh.gracePeriod,
+		QuietPeriod: wh.Options.GracePeriod,
 	}
 
+	//nolint:gosec
 	server := &http.Server{
-		Handler: drainer,
-		Addr:    fmt.Sprint(":", wh.Options.Port),
-		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-
-			// If we return (nil, error) the client sees - 'tls: internal error"
-			// If we return (nil, nil) the client sees - 'tls: no certificates configured'
-			//
-			// We'll return (nil, nil) when we don't find a certificate
-			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-				secret, err := wh.secretlister.Secrets(system.Namespace()).Get(wh.Options.SecretName)
-				if err != nil {
-					logger.Errorw("failed to fetch secret", zap.Error(err))
-					return nil, nil
-				}
-
-				serverKey, ok := secret.Data[certresources.ServerKey]
-				if !ok {
-					logger.Warn("server key missing")
-					return nil, nil
-				}
-				serverCert, ok := secret.Data[certresources.ServerCert]
-				if !ok {
-					logger.Warn("server cert missing")
-					return nil, nil
-				}
-				cert, err := tls.X509KeyPair(serverCert, serverKey)
-				if err != nil {
-					return nil, err
-				}
-				return &cert, nil
-			},
-		},
+		Handler:   drainer,
+		Addr:      fmt.Sprint(":", wh.Options.Port),
+		TLSConfig: wh.tlsConfig,
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
-			return err
+		if server.TLSConfig != nil {
+			if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
+				return err
+			}
+		} else {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Errorw("ListenAndServe for admission webhook returned error", zap.Error(err))
+				return err
+			}
 		}
 		return nil
 	})
