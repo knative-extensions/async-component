@@ -26,7 +26,7 @@ import (
 
 	"github.com/bradleypeabody/gouuidv6"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v9"
 	"github.com/kelseyhightower/envconfig"
 )
 

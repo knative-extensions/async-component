@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -41,6 +42,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/tracker"
 )
 
 const (
@@ -216,6 +218,10 @@ type Impl struct {
 
 	// StatsReporter is used to send common controller metrics.
 	statsReporter StatsReporter
+
+	// Tracker allows reconcilers to associate a reference with particular key,
+	// such that when the reference changes the key is queued for reconciliation.
+	Tracker tracker.Interface
 }
 
 // ControllerOptions encapsulates options for creating a new controller,
@@ -228,21 +234,9 @@ type ControllerOptions struct { //nolint // for backcompat.
 	Concurrency   int
 }
 
-// NewImpl instantiates an instance of our controller that will feed work to the
+// NewContext instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
-// Deprecated: use NewImplFull.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
-	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger})
-}
-
-// NewImplWithStats creates a controller.Impl with stats reporter.
-// Deprecated: use NewImplFull.
-func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
-	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger, Reporter: reporter})
-}
-
-// NewImplFull accepts the full set of options available to all controllers.
-func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
+func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *Impl {
 	if options.RateLimiter == nil {
 		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
 	}
@@ -252,7 +246,7 @@ func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
 	if options.Concurrency == 0 {
 		options.Concurrency = DefaultThreadsPerController
 	}
-	return &Impl{
+	i := &Impl{
 		Name:          options.WorkQueueName,
 		Reconciler:    r,
 		workQueue:     newTwoLaneWorkQueue(options.WorkQueueName, options.RateLimiter),
@@ -260,6 +254,14 @@ func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
 		statsReporter: options.Reporter,
 		Concurrency:   options.Concurrency,
 	}
+
+	if t := GetTracker(ctx); t != nil {
+		i.Tracker = t
+	} else {
+		i.Tracker = tracker.New(i.EnqueueKey, GetTrackerLease(ctx))
+	}
+
+	return i
 }
 
 // WorkQueue permits direct access to the work queue.
@@ -272,7 +274,7 @@ func (c *Impl) WorkQueue() workqueue.RateLimitingInterface {
 func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 	object, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
-		c.logger.Errorw("Enqueue", zap.Error(err))
+		c.logger.Errorw("EnqueueAfter", zap.Error(err))
 		return
 	}
 	c.EnqueueKeyAfter(types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()}, after)
@@ -439,6 +441,11 @@ func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 	}
 }
 
+// Run runs the controller with it's configured Concurrency
+func (c *Impl) Run(ctx context.Context) error {
+	return c.RunContext(ctx, c.Concurrency)
+}
+
 // RunContext starts the controller's worker threads, the number of which is threadiness.
 // If the context has been decorated for LeaderElection, then an elector is built and run.
 // It then blocks until the context is cancelled, at which point it shuts down its
@@ -460,6 +467,13 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 		le, err := kle.BuildElector(ctx, la, c.Name, c.MaybeEnqueueBucketKey)
 		if err != nil {
 			return err
+		}
+		if ib, ok := le.(kle.ElectorWithInitialBuckets); ok {
+			for _, b := range ib.InitialBuckets() {
+				// No need to provide an enq function since the controller
+				// is not processing items
+				la.Promote(b, nil)
+			}
 		}
 		sg.Add(1)
 		go func() {
@@ -484,18 +498,6 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	c.logger.Info("Shutting down workers")
 
 	return nil
-}
-
-// Run runs the controller.
-// DEPRECATED: Use RunContext instead.
-func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
-	// Create a context that is cancelled when the stopCh is called.
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stopCh
-		cancel()
-	}()
-	return c.RunContext(ctx, threadiness)
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
@@ -538,7 +540,7 @@ func (c *Impl) processNextWorkItem() bool {
 	// Run Reconcile, passing it the namespace/name string of the
 	// resource to be synced.
 	if err = c.Reconciler.Reconcile(ctx, keyStr); err != nil {
-		c.handleErr(err, key, startTime)
+		c.handleErr(logger, err, key, startTime)
 		return true
 	}
 
@@ -550,12 +552,18 @@ func (c *Impl) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Impl) handleErr(err error, key types.NamespacedName, startTime time.Time) {
+func (c *Impl) handleErr(logger *zap.SugaredLogger, err error, key types.NamespacedName, startTime time.Time) {
 	if IsSkipKey(err) {
 		c.workQueue.Forget(key)
 		return
 	}
-	c.logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
+	if ok, delay := IsRequeueKey(err); ok {
+		c.workQueue.AddAfter(key, delay)
+		logger.Debugf("Requeuing key %s (by request) after %v (depth: %d)", safeKey(key), delay, c.workQueue.Len())
+		return
+	}
+
+	logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
 
 	// Re-queue the key if it's a transient error.
 	// We want to check that the queue is shutting down here
@@ -563,7 +571,7 @@ func (c *Impl) handleErr(err error, key types.NamespacedName, startTime time.Tim
 	// being processed, queue.Len==0).
 	if !IsPermanentError(err) && !c.workQueue.ShuttingDown() {
 		c.workQueue.AddRateLimited(key)
-		c.logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", safeKey(key), c.workQueue.Len())
+		logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", safeKey(key), c.workQueue.Len())
 		return
 	}
 
@@ -666,6 +674,49 @@ func (err permanentError) Unwrap() error {
 	return err.e
 }
 
+// NewRequeueImmediately returns a new instance of requeueKeyError.
+// Users can return this type of error to immediately requeue a key.
+func NewRequeueImmediately() error {
+	return requeueKeyError{}
+}
+
+// NewRequeueAfter returns a new instance of requeueKeyError.
+// Users can return this type of error to requeue a key after a delay.
+func NewRequeueAfter(dur time.Duration) error {
+	return requeueKeyError{duration: dur}
+}
+
+// requeueKeyError is an error that indicates the reconciler wants to reprocess
+// the key after a particular duration (possibly zero).
+// We should re-queue keys with the desired duration when this is returned by Reconcile.
+type requeueKeyError struct {
+	duration time.Duration
+}
+
+var _ error = requeueKeyError{}
+
+// Error implements the Error() interface of error.
+func (err requeueKeyError) Error() string {
+	return fmt.Sprintf("requeue after: %s", err.duration)
+}
+
+// IsRequeueKey returns true if the given error is a requeueKeyError.
+func IsRequeueKey(err error) (bool, time.Duration) {
+	rqe := requeueKeyError{}
+	if errors.As(err, &rqe) {
+		return true, rqe.duration
+	}
+	return false, 0
+}
+
+// Is implements the Is() interface of error. It returns whether the target
+// error can be treated as equivalent to a requeueKeyError.
+func (requeueKeyError) Is(target error) bool {
+	//nolint: errorlint // This check is actually fine.
+	_, ok := target.(requeueKeyError)
+	return ok
+}
+
 // Informer is the group of methods that a type must implement to be passed to
 // StartInformers.
 type Informer interface {
@@ -727,18 +778,17 @@ func WaitForCacheSyncQuick(stopCh <-chan struct{}, cacheSyncs ...cache.InformerS
 }
 
 // StartAll kicks off all of the passed controllers with DefaultThreadsPerController.
-func StartAll(ctx context.Context, controllers ...*Impl) {
-	wg := sync.WaitGroup{}
+func StartAll(ctx context.Context, controllers ...*Impl) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+
 	// Start all of the controllers.
-	for _, ctrlr := range controllers {
-		wg.Add(1)
-		concurrency := ctrlr.Concurrency
-		go func(c *Impl) {
-			defer wg.Done()
-			c.RunContext(ctx, concurrency)
-		}(ctrlr)
+	for _, controller := range controllers {
+		c := controller
+		eg.Go(func() error {
+			return c.Run(egCtx)
+		})
 	}
-	wg.Wait()
+	return eg.Wait()
 }
 
 // This is attached to contexts passed to controller constructors to associate
@@ -764,6 +814,25 @@ func GetResyncPeriod(ctx context.Context) time.Duration {
 // GetTrackerLease fetches the tracker lease from the controller context.
 func GetTrackerLease(ctx context.Context) time.Duration {
 	return 3 * GetResyncPeriod(ctx)
+}
+
+// trackerKey is used to associate tracker.Interface with contexts.
+type trackerKey struct{}
+
+// WithTracker attaches the given tracker.Interface to the provided context
+// in the returned context.
+func WithTracker(ctx context.Context, t tracker.Interface) context.Context {
+	return context.WithValue(ctx, trackerKey{}, t)
+}
+
+// GetTracker attempts to look up the tracker.Interface on a given context.
+// It may return null if none is found.
+func GetTracker(ctx context.Context) tracker.Interface {
+	untyped := ctx.Value(trackerKey{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(tracker.Interface)
 }
 
 // erKey is used to associate record.EventRecorders with contexts.

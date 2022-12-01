@@ -17,16 +17,16 @@ limitations under the License.
 package network
 
 import (
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"go.uber.org/zap"
 )
 
 // ErrorHandler sets up a handler suitable for use with the ErrorHandler field on
 // httputil's reverse proxy.
-// TODO(mattmoor): Move the implementation into handlers/error.go once downstream consumers
-// have adopted the alias.
+//
+// Deprecated: Use handler.Error instead.
 func ErrorHandler(logger *zap.SugaredLogger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, req *http.Request, err error) {
 		ss := readSockStat(logger)
@@ -36,7 +36,7 @@ func ErrorHandler(logger *zap.SugaredLogger) func(http.ResponseWriter, *http.Req
 }
 
 func readSockStat(logger *zap.SugaredLogger) string {
-	b, err := ioutil.ReadFile("/proc/net/sockstat")
+	b, err := os.ReadFile("/proc/net/sockstat")
 	if err != nil {
 		logger.Errorw("Unable to read sockstat", zap.Error(err))
 		return ""
