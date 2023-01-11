@@ -248,7 +248,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
-# golang.org/x/net v0.2.0
+# golang.org/x/net v0.4.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -267,16 +267,16 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.2.0
+# golang.org/x/sys v0.3.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.2.0
+# golang.org/x/term v0.3.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.4.0
+# golang.org/x/text v0.5.0
 ## explicit; go 1.17
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
@@ -818,10 +818,10 @@ k8s.io/utils/trace
 # knative.dev/hack v0.0.0-20230110013548-af8745e34e08
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/net-contour v0.35.1-0.20230105181019-e7546b9b23fb
+# knative.dev/net-contour v0.35.1-0.20230110191448-c51108e4e36e
 ## explicit; go 1.18
 knative.dev/net-contour/pkg/reconciler/contour/config
-# knative.dev/networking v0.0.0-20230110015747-bc7a7e529d7b
+# knative.dev/networking v0.0.0-20230110184249-a51817ecebfe
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -850,7 +850,7 @@ knative.dev/networking/pkg/http/probe
 knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/k8s
-# knative.dev/pkg v0.0.0-20230110013450-dc20e472128f
+# knative.dev/pkg v0.0.0-20230110144649-ecf386394194
 ## explicit; go 1.18
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
