@@ -815,13 +815,13 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/hack v0.0.0-20230110013548-af8745e34e08
+# knative.dev/hack v0.0.0-20230113013652-c7cfcb062de9
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/net-contour v0.35.1-0.20230110191448-c51108e4e36e
+# knative.dev/net-contour v0.35.1-0.20230113015553-9dcce7575d97
 ## explicit; go 1.18
 knative.dev/net-contour/pkg/reconciler/contour/config
-# knative.dev/networking v0.0.0-20230110184249-a51817ecebfe
+# knative.dev/networking v0.0.0-20230113014853-fe0ac7de80b7
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -850,7 +850,7 @@ knative.dev/networking/pkg/http/probe
 knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/k8s
-# knative.dev/pkg v0.0.0-20230110144649-ecf386394194
+# knative.dev/pkg v0.0.0-20230113013451-8abadb0a3c19
 ## explicit; go 1.18
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
