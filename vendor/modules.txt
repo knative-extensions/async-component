@@ -818,10 +818,10 @@ k8s.io/utils/trace
 # knative.dev/hack v0.0.0-20230113013652-c7cfcb062de9
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/net-contour v0.35.1-0.20230116035954-9a671deb342e
+# knative.dev/net-contour v0.36.0
 ## explicit; go 1.18
 knative.dev/net-contour/pkg/reconciler/contour/config
-# knative.dev/networking v0.0.0-20230118220600-e9d3a55facee
+# knative.dev/networking v0.0.0-20230123233838-db2bcbea2560
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
